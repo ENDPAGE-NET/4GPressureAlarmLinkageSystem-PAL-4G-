@@ -2,9 +2,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.security import get_password_hash
+from app.core.security import get_password_hash, verify_password
 from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.user import UserChangePassword, UserCreate, UserResetPassword, UserUpdate
 
 
 async def get_user_by_username(db: AsyncSession, username: str) -> User | None:
@@ -44,6 +44,32 @@ async def update_user(db: AsyncSession, user: User, payload: UserUpdate) -> User
         user.role = payload.role
     if payload.is_active is not None:
         user.is_active = payload.is_active
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def reset_user_password(
+    db: AsyncSession,
+    user: User,
+    payload: UserResetPassword,
+) -> User:
+    # 管理员重置密码不要求旧密码，直接覆盖为新哈希。
+    user.password_hash = get_password_hash(payload.new_password)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def change_user_password(
+    db: AsyncSession,
+    user: User,
+    payload: UserChangePassword,
+) -> User:
+    # 用户自行修改密码时必须校验旧密码，避免 token 泄漏后被直接改密。
+    if not verify_password(payload.current_password, user.password_hash):
+        raise ValueError("Current password is incorrect")
+    user.password_hash = get_password_hash(payload.new_password)
     await db.commit()
     await db.refresh(user)
     return user
