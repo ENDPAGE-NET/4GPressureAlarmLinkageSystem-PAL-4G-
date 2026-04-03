@@ -28,9 +28,12 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
     LOG_ROOT_DIR: str = "logs"
+    BACKUP_ROOT_DIR: str = "backups"
     HEARTBEAT_TIMEOUT_SECONDS: int = 300
     OFFLINE_CHECK_INTERVAL_SECONDS: int = 60
     RETRY_PENDING_COMMANDS_INTERVAL_SECONDS: int = 60
+    LOG_RETENTION_DAYS: int = 7
+    BACKUP_RETENTION_DAYS: int = 7
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -41,6 +44,10 @@ class Settings(BaseSettings):
     @property
     def log_root_path(self) -> Path:
         return Path(self.LOG_ROOT_DIR)
+
+    @property
+    def backup_root_path(self) -> Path:
+        return Path(self.BACKUP_ROOT_DIR)
 
 
 settings = Settings()

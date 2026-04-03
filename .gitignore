@@ -16,6 +16,7 @@ Thumbs.db
 # Logs
 *.log
 logs/
+backups/
 
 # Node.js / Web / UniApp
 node_modules/
@@ -49,3 +50,4 @@ temp/
 
 # Local docs templates
 docs/python项目开发经验（环境uv）.md
+docs/git常用命令文档.md

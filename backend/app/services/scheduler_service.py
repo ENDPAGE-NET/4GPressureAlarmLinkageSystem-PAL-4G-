@@ -9,58 +9,139 @@ from app.db.session import AsyncSessionLocal
 from app.models.module import Module
 from app.services.linkage_service import retry_queued_relay_commands
 from app.services.logging_service import write_runtime_log
+from app.services.maintenance_service import cleanup_runtime_files, write_job_execution_log
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone="UTC")
 
 
-async def mark_offline_modules() -> int:
+async def mark_offline_modules(trigger_type: str = "scheduler") -> int:
+    started_at = datetime.now(timezone.utc)
     timeout_at = datetime.now(timezone.utc) - timedelta(
         seconds=settings.HEARTBEAT_TIMEOUT_SECONDS
     )
     async with AsyncSessionLocal() as session:
-        stmt = select(Module).where(
-            Module.is_online.is_(True),
-            Module.last_seen_at.is_not(None),
-            Module.last_seen_at < timeout_at,
-        )
-        modules = list((await session.execute(stmt)).scalars().all())
-        for module in modules:
-            module.is_online = False
-        await session.commit()
-        if modules:
-            await write_runtime_log(
+        try:
+            stmt = select(Module).where(
+                Module.is_online.is_(True),
+                Module.last_seen_at.is_not(None),
+                Module.last_seen_at < timeout_at,
+            )
+            modules = list((await session.execute(stmt)).scalars().all())
+            for module in modules:
+                module.is_online = False
+            await session.commit()
+
+            if modules:
+                await write_runtime_log(
+                    session,
+                    level="INFO",
+                    event="offline_check",
+                    message=f"updated {len(modules)} modules to offline",
+                    context={"module_count": len(modules)},
+                )
+
+            await write_job_execution_log(
                 session,
-                level="INFO",
-                event="offline_check",
+                job_name="offline_check",
+                trigger_type=trigger_type,
+                status="success",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
                 message=f"updated {len(modules)} modules to offline",
                 context={"module_count": len(modules)},
             )
-        if modules:
-            logger.info("离线检测已更新 %s 个模块为离线状态", len(modules))
-        return len(modules)
+            return len(modules)
+        except Exception as exc:
+            await write_job_execution_log(
+                session,
+                job_name="offline_check",
+                trigger_type=trigger_type,
+                status="failed",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                message=str(exc),
+            )
+            raise
 
 
-async def run_retry_pending_commands_job() -> dict[str, int]:
+async def run_retry_pending_commands_job(
+    trigger_type: str = "scheduler",
+) -> dict[str, int]:
+    started_at = datetime.now(timezone.utc)
     async with AsyncSessionLocal() as session:
-        result = await retry_queued_relay_commands(session)
-        await write_runtime_log(
-            session,
-            level="INFO",
-            event="retry_pending_commands",
-            message=(
-                f"scanned {result.total_scanned}, dispatched {result.dispatched_count}, "
-                f"still queued {result.still_queued_count}"
-            ),
-            context=result.model_dump(),
-        )
-        logger.info(
-            "补发扫描完成，总扫描 %s，已补发 %s，仍排队 %s",
-            result.total_scanned,
-            result.dispatched_count,
-            result.still_queued_count,
-        )
-        return result.model_dump()
+        try:
+            result = await retry_queued_relay_commands(session)
+            await write_runtime_log(
+                session,
+                level="INFO",
+                event="retry_pending_commands",
+                message=(
+                    f"scanned {result.total_scanned}, dispatched {result.dispatched_count}, "
+                    f"still queued {result.still_queued_count}"
+                ),
+                context=result.model_dump(),
+            )
+            await write_job_execution_log(
+                session,
+                job_name="retry_pending_commands",
+                trigger_type=trigger_type,
+                status="success",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                message="retry pending commands completed",
+                context=result.model_dump(),
+            )
+            return result.model_dump()
+        except Exception as exc:
+            await write_job_execution_log(
+                session,
+                job_name="retry_pending_commands",
+                trigger_type=trigger_type,
+                status="failed",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                message=str(exc),
+            )
+            raise
+
+
+async def run_cleanup_runtime_files_job(
+    trigger_type: str = "scheduler",
+) -> dict[str, int]:
+    started_at = datetime.now(timezone.utc)
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await cleanup_runtime_files()
+            await write_runtime_log(
+                session,
+                level="INFO",
+                event="cleanup_runtime_files",
+                message="cleanup runtime files completed",
+                context=result.model_dump(),
+            )
+            await write_job_execution_log(
+                session,
+                job_name="cleanup_runtime_files",
+                trigger_type=trigger_type,
+                status="success",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                message="cleanup runtime files completed",
+                context=result.model_dump(),
+            )
+            return result.model_dump()
+        except Exception as exc:
+            await write_job_execution_log(
+                session,
+                job_name="cleanup_runtime_files",
+                trigger_type=trigger_type,
+                status="failed",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                message=str(exc),
+            )
+            raise
 
 
 def start_scheduler() -> None:
@@ -81,11 +162,18 @@ def start_scheduler() -> None:
         id="retry-pending-relay-commands",
         replace_existing=True,
     )
+    scheduler.add_job(
+        run_cleanup_runtime_files_job,
+        "interval",
+        hours=24,
+        id="cleanup-runtime-files",
+        replace_existing=True,
+    )
     scheduler.start()
-    logger.info("APScheduler 已启动")
+    logger.info("APScheduler started")
 
 
 def shutdown_scheduler() -> None:
     if scheduler.running:
         scheduler.shutdown(wait=False)
-        logger.info("APScheduler 已停止")
+        logger.info("APScheduler stopped")
