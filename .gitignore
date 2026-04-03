@@ -44,3 +44,5 @@ build/
 tmp/
 temp/
 
+# Local docs templates
+docs/python项目开发经验（环境uv）.md
