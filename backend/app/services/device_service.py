@@ -1,20 +1,27 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.alarm_record import AlarmRecord
 from app.models.device import Device
+from app.models.device_group import DeviceGroup
 from app.models.module import Module
+from app.models.relay_command import RelayCommand
 from app.models.user import User
 from app.schemas.alarm import AlarmRecordCreate
 from app.schemas.device import (
+    DeviceAssignOwner,
     DeviceBind,
     DeviceCreate,
+    DeviceGroupCreate,
+    DeviceGroupRead,
+    DeviceGroupUpdate,
     DeviceMonitoringItem,
     DeviceOverview,
     DeviceStatistics,
+    DeviceUpdate,
     ModuleCreate,
     ModuleStatusReport,
 )
@@ -37,7 +44,7 @@ async def get_device_by_id(db: AsyncSession, device_id: int) -> Device | None:
     stmt = (
         select(Device)
         .execution_options(populate_existing=True)
-        .options(selectinload(Device.modules))
+        .options(selectinload(Device.modules), selectinload(Device.linkage_group))
         .where(Device.id == device_id)
     )
     result = await db.execute(stmt)
@@ -45,7 +52,11 @@ async def get_device_by_id(db: AsyncSession, device_id: int) -> Device | None:
 
 
 async def get_device_by_serial_number(db: AsyncSession, serial_number: str) -> Device | None:
-    result = await db.execute(select(Device).where(Device.serial_number == serial_number))
+    result = await db.execute(
+        select(Device)
+        .options(selectinload(Device.linkage_group))
+        .where(Device.serial_number == serial_number)
+    )
     return result.scalar_one_or_none()
 
 
@@ -61,6 +72,100 @@ async def create_device(db: AsyncSession, payload: DeviceCreate, owner: User) ->
     await db.commit()
     await db.refresh(device)
     return device
+
+
+async def list_device_groups(db: AsyncSession, user: User) -> list[DeviceGroup]:
+    stmt = select(DeviceGroup).options(selectinload(DeviceGroup.devices)).order_by(
+        DeviceGroup.id.desc()
+    )
+    if user.role != "super_admin":
+        stmt = stmt.where(DeviceGroup.owner_id == user.id)
+    return list((await db.execute(stmt)).scalars().unique().all())
+
+
+async def get_device_group_by_id(db: AsyncSession, group_id: int) -> DeviceGroup | None:
+    stmt = (
+        select(DeviceGroup)
+        .options(selectinload(DeviceGroup.devices))
+        .where(DeviceGroup.id == group_id)
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def get_device_group_by_name(db: AsyncSession, name: str) -> DeviceGroup | None:
+    stmt = select(DeviceGroup).where(DeviceGroup.name == name)
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def create_device_group(
+    db: AsyncSession,
+    payload: DeviceGroupCreate,
+    owner: User | None,
+) -> DeviceGroup:
+    # 联动组描述的是报警传播范围，不等同于账号归属，所以 owner 可为空。
+    group = DeviceGroup(
+        name=payload.name,
+        description=payload.description,
+        owner_id=owner.id if owner else None,
+    )
+    db.add(group)
+    await db.commit()
+    await db.refresh(group)
+    return group
+
+
+async def update_device_group(
+    db: AsyncSession,
+    group: DeviceGroup,
+    payload: DeviceGroupUpdate,
+    owner: User | None,
+) -> DeviceGroup:
+    if payload.name is not None:
+        group.name = payload.name
+    if payload.description is not None:
+        group.description = payload.description
+    if payload.owner_id is not None:
+        group.owner_id = owner.id if owner else None
+
+    await db.commit()
+    await db.refresh(group)
+    return group
+
+
+async def assign_device_group(
+    db: AsyncSession,
+    device: Device,
+    group: DeviceGroup | None,
+) -> Device:
+    # 设备挂组后，后续报警联动优先按组内模块计算目标。
+    device.linkage_group_id = group.id if group else None
+    await db.commit()
+    await db.refresh(device)
+    return device
+
+
+async def delete_device_group(
+    db: AsyncSession,
+    group: DeviceGroup,
+) -> None:
+    if group.devices:
+        raise ValueError("Device group still has assigned devices")
+
+    await db.execute(delete(DeviceGroup).where(DeviceGroup.id == group.id))
+    await db.commit()
+
+
+def build_device_group_read(group: DeviceGroup) -> DeviceGroupRead:
+    return DeviceGroupRead(
+        id=group.id,
+        name=group.name,
+        description=group.description,
+        owner_id=group.owner_id,
+        created_at=group.created_at,
+        updated_at=group.updated_at,
+        device_count=len(group.devices),
+        device_ids=[device.id for device in group.devices],
+    )
 
 
 async def get_module_by_code(
@@ -122,6 +227,85 @@ async def bind_device_by_serial(
     await db.commit()
     await db.refresh(device)
     return device
+
+
+async def update_device(
+    db: AsyncSession,
+    device: Device,
+    payload: DeviceUpdate,
+) -> Device:
+    # 设备基础资料更新只允许改展示信息和业务状态，不允许改 SN。
+    if payload.name is not None:
+        device.name = payload.name
+    if payload.status is not None:
+        device.status = payload.status
+
+    await db.commit()
+    await db.refresh(device)
+    return device
+
+
+async def assign_device_owner(
+    db: AsyncSession,
+    device: Device,
+    payload: DeviceAssignOwner,
+    owner: User | None,
+) -> Device:
+    # 设备归属调整统一收口到这里，owner 为空表示回收为未归属设备。
+    device.owner_id = owner.id if owner else None
+    await db.commit()
+    await db.refresh(device)
+    return device
+
+
+async def unbind_device(
+    db: AsyncSession,
+    device: Device,
+) -> Device:
+    # 解绑后保留设备与历史数据，只清掉账号归属。
+    device.owner_id = None
+    await db.commit()
+    await db.refresh(device)
+    return device
+
+
+async def delete_module(
+    db: AsyncSession,
+    module: Module,
+) -> None:
+    alarm_count = (
+        await db.execute(
+            select(func.count(AlarmRecord.id)).where(AlarmRecord.module_id == module.id)
+        )
+    ).scalar_one()
+    command_count = (
+        await db.execute(
+            select(func.count(RelayCommand.id)).where(RelayCommand.module_id == module.id)
+        )
+    ).scalar_one()
+
+    # 已产生报警或联动记录的模块不能直接删，否则会破坏追溯链路。
+    if alarm_count or command_count:
+        raise ValueError("Module has historical records and cannot be deleted")
+
+    await db.execute(delete(Module).where(Module.id == module.id))
+    await db.commit()
+
+
+async def delete_device(
+    db: AsyncSession,
+    device: Device,
+) -> None:
+    module_count = (
+        await db.execute(select(func.count(Module.id)).where(Module.device_id == device.id))
+    ).scalar_one()
+
+    # 设备只有在完全空载时才允许删除，避免把模块历史一起带丢。
+    if module_count:
+        raise ValueError("Device still has modules and cannot be deleted")
+
+    await db.execute(delete(Device).where(Device.id == device.id))
+    await db.commit()
 
 
 async def update_module_status(

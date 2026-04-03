@@ -96,11 +96,11 @@ async def create_relay_command(
             db,
             channel="mqtt_command",
             direction="outbound",
-            status=command.execution_status,
+            status="published" if publish_result.published else "queued",
             device_serial=module_with_device.device.serial_number,
             module_code=module_with_device.module_code,
-            payload=publish_result["payload"],
-            message=f"prepared relay command topic {publish_result['topic']}",
+            payload=publish_result.payload,
+            message=f"{publish_result.reason}: {publish_result.topic}",
         )
     await write_operation_log(
         db,

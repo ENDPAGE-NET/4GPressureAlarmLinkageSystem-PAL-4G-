@@ -13,6 +13,9 @@ class Device(Base):
     name: Mapped[str] = mapped_column(String(128))
     serial_number: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    linkage_group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("device_groups.id"), nullable=True, index=True
+    )
     status: Mapped[str] = mapped_column(String(32), default="inactive")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -22,4 +25,5 @@ class Device(Base):
     )
 
     owner = relationship("User", back_populates="devices")
+    linkage_group = relationship("DeviceGroup", back_populates="devices")
     modules = relationship("Module", back_populates="device")

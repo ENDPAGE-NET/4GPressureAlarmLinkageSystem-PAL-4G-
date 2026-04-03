@@ -6,6 +6,7 @@ from app.models import (  # noqa: F401
     AlarmRecord,
     CommunicationLog,
     Device,
+    DeviceGroup,
     Module,
     OperationLog,
     RelayCommand,

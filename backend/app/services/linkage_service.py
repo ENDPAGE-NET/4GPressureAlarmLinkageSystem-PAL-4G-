@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.alarm_record import AlarmRecord
+from app.models.device import Device
 from app.models.module import Module
 from app.models.relay_command import RelayCommand
 from app.schemas.alarm import AlarmLinkageDispatchResult
@@ -17,7 +18,7 @@ async def dispatch_linkage_for_alarm(
 ) -> AlarmLinkageDispatchResult:
     trigger_module_stmt = (
         select(Module)
-        .options(selectinload(Module.device))
+        .options(selectinload(Module.device).selectinload(Device.linkage_group))
         .where(Module.id == alarm.module_id)
     )
     trigger_module = (await db.execute(trigger_module_stmt)).scalar_one_or_none()
@@ -36,14 +37,28 @@ async def dispatch_linkage_for_alarm(
             linkage_result=alarm.linkage_result or "",
         )
 
-    target_modules_stmt = select(Module).where(
-        Module.device_id == trigger_module.device_id,
-        Module.id != trigger_module.id,
-    )
+    # 联动优先按设备组找目标；如果设备还没挂组，则退回到原来的“同设备内其他模块”策略。
+    if trigger_module.device and trigger_module.device.linkage_group_id:
+        target_modules_stmt = (
+            select(Module)
+            .join(Module.device)
+            .where(
+                Device.linkage_group_id == trigger_module.device.linkage_group_id,
+                Module.id != trigger_module.id,
+            )
+        )
+        no_target_message = "no linkage targets found in the same device group"
+    else:
+        target_modules_stmt = select(Module).where(
+            Module.device_id == trigger_module.device_id,
+            Module.id != trigger_module.id,
+        )
+        no_target_message = "no linkage targets found in the same device"
+
     target_modules = list((await db.execute(target_modules_stmt)).scalars().all())
     if not target_modules:
         alarm.linkage_status = "no_targets"
-        alarm.linkage_result = "no linkage targets found in the same device"
+        alarm.linkage_result = no_target_message
         await db.commit()
         await db.refresh(alarm)
         return AlarmLinkageDispatchResult(

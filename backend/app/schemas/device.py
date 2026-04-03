@@ -43,12 +43,22 @@ class DeviceBind(BaseModel):
     name: str | None = Field(default=None, max_length=128)
 
 
+class DeviceAssignOwner(BaseModel):
+    owner_id: int | None = Field(default=None, ge=1)
+
+
+class DeviceUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    status: str | None = Field(default=None, min_length=1, max_length=32)
+
+
 class DeviceRead(BaseModel):
     id: int
     name: str
     serial_number: str
     status: str
     owner_id: int | None
+    linkage_group_id: int | None = None
     created_at: datetime
     updated_at: datetime
     modules: list[ModuleRead] = []
@@ -87,3 +97,47 @@ class DeviceMonitoringItem(BaseModel):
     latest_alarm_type: str | None
     latest_alarm_time: datetime | None
     device_status: str
+
+
+class DeviceDeleteResult(BaseModel):
+    device_id: int
+    deleted: bool = True
+
+
+class ModuleDeleteResult(BaseModel):
+    module_id: int
+    deleted: bool = True
+
+
+class DeviceGroupCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    description: str | None = Field(default=None, max_length=500)
+    owner_id: int | None = Field(default=None, ge=1)
+
+
+class DeviceGroupUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    description: str | None = Field(default=None, max_length=500)
+    owner_id: int | None = Field(default=None, ge=1)
+
+
+class DeviceGroupAssign(BaseModel):
+    linkage_group_id: int | None = Field(default=None, ge=1)
+
+
+class DeviceGroupRead(BaseModel):
+    id: int
+    name: str
+    description: str | None
+    owner_id: int | None
+    created_at: datetime
+    updated_at: datetime
+    device_count: int = 0
+    device_ids: list[int] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DeviceGroupDeleteResult(BaseModel):
+    group_id: int
+    deleted: bool = True
