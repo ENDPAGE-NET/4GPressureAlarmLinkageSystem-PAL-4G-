@@ -19,9 +19,27 @@ class ModuleRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ModuleDetail(ModuleRead):
+    device_id: int
+
+
+class ModuleStatusReport(BaseModel):
+    is_online: bool
+    relay_state: bool | None = None
+    battery_level: int | None = Field(default=None, ge=0, le=100)
+    voltage_value: float | None = None
+    trigger_alarm_type: str | None = Field(default=None, max_length=32)
+    alarm_message: str | None = None
+
+
 class DeviceCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     serial_number: str = Field(min_length=1, max_length=128)
+
+
+class DeviceBind(BaseModel):
+    serial_number: str = Field(min_length=1, max_length=128)
+    name: str | None = Field(default=None, max_length=128)
 
 
 class DeviceRead(BaseModel):

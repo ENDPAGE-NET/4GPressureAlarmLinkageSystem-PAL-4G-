@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -6,7 +8,15 @@ from app.models.alarm_record import AlarmRecord
 from app.models.device import Device
 from app.models.module import Module
 from app.models.user import User
-from app.schemas.device import DeviceCreate, DeviceOverview, ModuleCreate
+from app.schemas.alarm import AlarmRecordCreate
+from app.schemas.device import (
+    DeviceBind,
+    DeviceCreate,
+    DeviceOverview,
+    ModuleCreate,
+    ModuleStatusReport,
+)
+from app.services.alarm_service import create_alarm_record
 
 
 async def list_devices(db: AsyncSession, user: User) -> list[Device]:
@@ -60,6 +70,12 @@ async def get_module_by_code(
     return result.scalar_one_or_none()
 
 
+async def get_module_by_id(db: AsyncSession, module_id: int) -> Module | None:
+    stmt = select(Module).options(selectinload(Module.device)).where(Module.id == module_id)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
 async def add_module_to_device(
     db: AsyncSession,
     device: Device,
@@ -70,6 +86,67 @@ async def add_module_to_device(
     await db.commit()
     await db.refresh(module)
     return module
+
+
+async def bind_device_by_serial(
+    db: AsyncSession,
+    payload: DeviceBind,
+    current_user: User,
+) -> Device:
+    existing_device = await get_device_by_serial_number(db, payload.serial_number)
+    if existing_device:
+        if existing_device.owner_id and existing_device.owner_id != current_user.id:
+            raise ValueError("Device is already bound to another user")
+        if existing_device.owner_id != current_user.id:
+            existing_device.owner_id = current_user.id
+            if payload.name:
+                existing_device.name = payload.name
+            await db.commit()
+            await db.refresh(existing_device)
+        return existing_device
+
+    device = Device(
+        name=payload.name or payload.serial_number,
+        serial_number=payload.serial_number,
+        owner_id=current_user.id,
+        status="inactive",
+    )
+    db.add(device)
+    await db.commit()
+    await db.refresh(device)
+    return device
+
+
+async def update_module_status(
+    db: AsyncSession,
+    module: Module,
+    payload: ModuleStatusReport,
+) -> Module:
+    module.is_online = payload.is_online
+    module.last_seen_at = datetime.now(timezone.utc)
+
+    if payload.relay_state is not None:
+        module.relay_state = payload.relay_state
+    if payload.battery_level is not None:
+        module.battery_level = payload.battery_level
+    if payload.voltage_value is not None:
+        module.voltage_value = payload.voltage_value
+
+    await db.commit()
+    await db.refresh(module)
+
+    if payload.trigger_alarm_type:
+        await create_alarm_record(
+            db,
+            AlarmRecordCreate(
+                module_id=module.id,
+                alarm_type=payload.trigger_alarm_type,
+                message=payload.alarm_message,
+            ),
+        )
+
+    refreshed = await get_module_by_id(db, module.id)
+    return refreshed or module
 
 
 async def get_device_overview(db: AsyncSession, user: User) -> DeviceOverview:
