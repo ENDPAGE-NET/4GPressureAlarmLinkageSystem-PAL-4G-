@@ -1,7 +1,8 @@
 import csv
 import io
+from datetime import datetime
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.alarm_record import AlarmRecord
@@ -15,6 +16,7 @@ from app.schemas.dashboard import (
     DashboardCharts,
     DashboardDeviceDetail,
     DashboardHome,
+    DashboardModulePanelItem,
     DashboardRelayCommandItem,
     DashboardRelayCommandPage,
     DashboardTrendPoint,
@@ -33,10 +35,67 @@ from app.services.device_service import (
 )
 
 
+async def list_dashboard_module_panels(
+    db: AsyncSession,
+    user: User,
+) -> list[DashboardModulePanelItem]:
+    stmt = select(Module, Device).join(Device, Module.device_id == Device.id)
+    if user.role != "super_admin":
+        stmt = stmt.where(Device.owner_id == user.id)
+
+    rows = (
+        await db.execute(
+            stmt.order_by(Device.name.asc(), Device.id.asc(), Module.module_code.asc(), Module.id.asc())
+        )
+    ).all()
+
+    module_ids = [module.id for module, _device in rows]
+    latest_alarm_map: dict[int, AlarmRecord] = {}
+    if module_ids:
+        alarm_rows = (
+            await db.execute(
+                select(AlarmRecord)
+                .where(AlarmRecord.module_id.in_(module_ids))
+                .order_by(
+                    AlarmRecord.module_id.asc(),
+                    AlarmRecord.triggered_at.desc(),
+                    AlarmRecord.id.desc(),
+                )
+            )
+        ).scalars().all()
+        for alarm in alarm_rows:
+            latest_alarm_map.setdefault(alarm.module_id, alarm)
+
+    return [
+        DashboardModulePanelItem(
+            module_id=module.id,
+            device_id=device.id,
+            device_name=device.name,
+            serial_number=device.serial_number,
+            module_code=module.module_code,
+            is_online=module.is_online,
+            battery_level=module.battery_level,
+            voltage_value=module.voltage_value,
+            relay_state=module.relay_state,
+            last_seen_at=module.last_seen_at,
+            latest_alarm_type=latest_alarm_map.get(module.id).alarm_type
+            if latest_alarm_map.get(module.id)
+            else None,
+            latest_alarm_time=latest_alarm_map.get(module.id).triggered_at
+            if latest_alarm_map.get(module.id)
+            else None,
+        )
+        for module, device in rows
+    ]
+
+
 async def get_dashboard_home(db: AsyncSession, user: User) -> DashboardHome:
     overview = await get_device_overview(db, user)
     statistics = await get_device_statistics(db, user)
     monitoring = await get_device_monitoring_list(db, user)
+    module_panels = (
+        await list_dashboard_module_panels(db, user) if user.role != "super_admin" else []
+    )
 
     recent_alarm_stmt = (
         select(func.count(AlarmRecord.id))
@@ -62,6 +121,7 @@ async def get_dashboard_home(db: AsyncSession, user: User) -> DashboardHome:
         overview=overview,
         statistics=statistics,
         monitoring=monitoring[:10],
+        module_panels=module_panels,
         recent_alarm_count=recent_alarm_count,
         pending_command_count=pending_command_count,
     )
@@ -72,6 +132,13 @@ async def list_dashboard_recent_alarms(
     user: User,
     limit: int = 10,
     offset: int = 0,
+    keyword: str | None = None,
+    alarm_type: str | None = None,
+    alarm_status: str | None = None,
+    source: str | None = None,
+    linkage_status: str | None = None,
+    triggered_from: datetime | None = None,
+    triggered_to: datetime | None = None,
 ) -> list[DashboardAlarmItem]:
     stmt = (
         select(AlarmRecord, Module, Device)
@@ -80,6 +147,21 @@ async def list_dashboard_recent_alarms(
     )
     if user.role != "super_admin":
         stmt = stmt.where(Device.owner_id == user.id)
+    if keyword:
+        fuzzy = f"%{keyword.strip()}%"
+        stmt = stmt.where(or_(Device.name.ilike(fuzzy), Module.module_code.ilike(fuzzy)))
+    if alarm_type:
+        stmt = stmt.where(AlarmRecord.alarm_type == alarm_type)
+    if alarm_status:
+        stmt = stmt.where(AlarmRecord.alarm_status == alarm_status)
+    if source:
+        stmt = stmt.where(AlarmRecord.source == source)
+    if linkage_status:
+        stmt = stmt.where(AlarmRecord.linkage_status == linkage_status)
+    if triggered_from:
+        stmt = stmt.where(AlarmRecord.triggered_at >= triggered_from)
+    if triggered_to:
+        stmt = stmt.where(AlarmRecord.triggered_at <= triggered_to)
 
     rows = (
         await db.execute(
@@ -111,8 +193,27 @@ async def get_dashboard_alarm_page(
     user: User,
     limit: int = 10,
     offset: int = 0,
+    keyword: str | None = None,
+    alarm_type: str | None = None,
+    alarm_status: str | None = None,
+    source: str | None = None,
+    linkage_status: str | None = None,
+    triggered_from: datetime | None = None,
+    triggered_to: datetime | None = None,
 ) -> DashboardAlarmPage:
-    items = await list_dashboard_recent_alarms(db, user, limit=limit, offset=offset)
+    items = await list_dashboard_recent_alarms(
+        db,
+        user,
+        limit=limit,
+        offset=offset,
+        keyword=keyword,
+        alarm_type=alarm_type,
+        alarm_status=alarm_status,
+        source=source,
+        linkage_status=linkage_status,
+        triggered_from=triggered_from,
+        triggered_to=triggered_to,
+    )
     count_stmt = (
         select(func.count(AlarmRecord.id))
         .join(Module, AlarmRecord.module_id == Module.id)
@@ -120,6 +221,21 @@ async def get_dashboard_alarm_page(
     )
     if user.role != "super_admin":
         count_stmt = count_stmt.where(Device.owner_id == user.id)
+    if keyword:
+        fuzzy = f"%{keyword.strip()}%"
+        count_stmt = count_stmt.where(or_(Device.name.ilike(fuzzy), Module.module_code.ilike(fuzzy)))
+    if alarm_type:
+        count_stmt = count_stmt.where(AlarmRecord.alarm_type == alarm_type)
+    if alarm_status:
+        count_stmt = count_stmt.where(AlarmRecord.alarm_status == alarm_status)
+    if source:
+        count_stmt = count_stmt.where(AlarmRecord.source == source)
+    if linkage_status:
+        count_stmt = count_stmt.where(AlarmRecord.linkage_status == linkage_status)
+    if triggered_from:
+        count_stmt = count_stmt.where(AlarmRecord.triggered_at >= triggered_from)
+    if triggered_to:
+        count_stmt = count_stmt.where(AlarmRecord.triggered_at <= triggered_to)
     total = (await db.execute(count_stmt)).scalar_one() or 0
     return DashboardAlarmPage(
         items=items,

@@ -34,10 +34,26 @@ class DashboardRelayCommandItem(BaseModel):
     executed_at: datetime | None
 
 
+class DashboardModulePanelItem(BaseModel):
+    module_id: int
+    device_id: int
+    device_name: str
+    serial_number: str
+    module_code: str
+    is_online: bool
+    battery_level: int | None
+    voltage_value: float | None
+    relay_state: bool
+    last_seen_at: datetime | None
+    latest_alarm_type: str | None
+    latest_alarm_time: datetime | None
+
+
 class DashboardHome(BaseModel):
     overview: DeviceOverview
     statistics: DeviceStatistics
     monitoring: list[DeviceMonitoringItem]
+    module_panels: list[DashboardModulePanelItem] = []
     recent_alarm_count: int
     pending_command_count: int
 

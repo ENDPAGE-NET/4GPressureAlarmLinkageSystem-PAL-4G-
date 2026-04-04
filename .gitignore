@@ -41,6 +41,7 @@ venv/
 env/
 backend/tests/
 backend/*.db
+backend/*.db-journal
 backend/pytest-cache-files-*/
 
 # Build artifacts
