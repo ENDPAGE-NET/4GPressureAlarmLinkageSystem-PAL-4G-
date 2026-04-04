@@ -47,6 +47,10 @@ class DeviceAssignOwner(BaseModel):
     owner_id: int | None = Field(default=None, ge=1)
 
 
+class DeviceAssignProtocolProfile(BaseModel):
+    protocol_profile_id: int | None = Field(default=None, ge=1)
+
+
 class DeviceUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     status: str | None = Field(default=None, min_length=1, max_length=32)
@@ -59,6 +63,7 @@ class DeviceRead(BaseModel):
     status: str
     owner_id: int | None
     linkage_group_id: int | None = None
+    protocol_profile_id: int | None = None
     created_at: datetime
     updated_at: datetime
     modules: list[ModuleRead] = []

@@ -10,6 +10,7 @@ from app.models import (  # noqa: F401
     JobExecutionLog,
     Module,
     OperationLog,
+    ProtocolProfile,
     RelayCommand,
     RuntimeLog,
     User,

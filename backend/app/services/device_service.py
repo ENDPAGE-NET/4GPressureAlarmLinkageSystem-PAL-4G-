@@ -8,6 +8,7 @@ from app.models.alarm_record import AlarmRecord
 from app.models.device import Device
 from app.models.device_group import DeviceGroup
 from app.models.module import Module
+from app.models.protocol_profile import ProtocolProfile
 from app.models.relay_command import RelayCommand
 from app.models.user import User
 from app.schemas.alarm import AlarmRecordCreate
@@ -44,7 +45,11 @@ async def get_device_by_id(db: AsyncSession, device_id: int) -> Device | None:
     stmt = (
         select(Device)
         .execution_options(populate_existing=True)
-        .options(selectinload(Device.modules), selectinload(Device.linkage_group))
+        .options(
+            selectinload(Device.modules),
+            selectinload(Device.linkage_group),
+            selectinload(Device.protocol_profile),
+        )
         .where(Device.id == device_id)
     )
     result = await db.execute(stmt)
@@ -54,7 +59,7 @@ async def get_device_by_id(db: AsyncSession, device_id: int) -> Device | None:
 async def get_device_by_serial_number(db: AsyncSession, serial_number: str) -> Device | None:
     result = await db.execute(
         select(Device)
-        .options(selectinload(Device.linkage_group))
+        .options(selectinload(Device.linkage_group), selectinload(Device.protocol_profile))
         .where(Device.serial_number == serial_number)
     )
     return result.scalar_one_or_none()
@@ -179,6 +184,18 @@ async def get_module_by_code(
     )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
+
+
+async def get_device_by_serial_with_protocol(
+    db: AsyncSession,
+    serial_number: str,
+) -> Device | None:
+    stmt = (
+        select(Device)
+        .options(selectinload(Device.protocol_profile))
+        .where(Device.serial_number == serial_number)
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
 
 
 async def get_module_by_id(db: AsyncSession, module_id: int) -> Module | None:

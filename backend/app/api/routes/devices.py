@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.device import (
     DeviceAssignOwner,
+    DeviceAssignProtocolProfile,
     DeviceBind,
     DeviceCreate,
     DeviceDeleteResult,
@@ -51,6 +52,10 @@ from app.services.device_service import (
     update_device_group,
     update_device,
     update_module_status,
+)
+from app.services.protocol_profile_service import (
+    assign_device_protocol_profile,
+    get_protocol_profile_by_id,
 )
 from app.services.user_service import get_user_by_id
 
@@ -412,6 +417,47 @@ async def assign_group(
         actor_user_id=current_user.id,
         target_id=device_id,
         detail=f"assigned device {updated_device.serial_number} to group {payload.linkage_group_id}",
+    )
+    return DeviceRead.model_validate(refreshed_device)
+
+
+@router.post("/{device_id}/assign-protocol", response_model=DeviceRead)
+async def assign_protocol(
+    device_id: int,
+    payload: DeviceAssignProtocolProfile,
+    current_admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> DeviceRead:
+    device = await get_device_by_id(db, device_id)
+    if not device:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
+
+    profile = None
+    if payload.protocol_profile_id is not None:
+        profile = await get_protocol_profile_by_id(db, payload.protocol_profile_id)
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Protocol profile not found",
+            )
+        if not profile.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Protocol profile is inactive",
+            )
+
+    updated_device = await assign_device_protocol_profile(db, device, profile)
+    refreshed_device = await get_device_by_id(db, updated_device.id)
+    await write_operation_log(
+        db,
+        action="assign_device_protocol_profile",
+        target_type="device",
+        actor_user_id=current_admin.id,
+        target_id=device_id,
+        detail=(
+            f"assigned protocol profile {payload.protocol_profile_id} "
+            f"to device {updated_device.serial_number}"
+        ),
     )
     return DeviceRead.model_validate(refreshed_device)
 

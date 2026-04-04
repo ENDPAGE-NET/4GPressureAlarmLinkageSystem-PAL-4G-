@@ -7,6 +7,7 @@ from app.models.device_group import DeviceGroup
 from app.models.job_execution_log import JobExecutionLog
 from app.models.module import Module
 from app.models.operation_log import OperationLog
+from app.models.protocol_profile import ProtocolProfile
 from app.models.relay_command import RelayCommand
 from app.models.runtime_log import RuntimeLog
 from app.models.user import User
@@ -19,6 +20,7 @@ __all__ = [
     "JobExecutionLog",
     "Module",
     "OperationLog",
+    "ProtocolProfile",
     "RelayCommand",
     "RuntimeLog",
     "User",

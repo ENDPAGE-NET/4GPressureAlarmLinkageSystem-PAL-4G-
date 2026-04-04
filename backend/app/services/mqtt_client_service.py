@@ -14,7 +14,9 @@ from app.services.mqtt_adapter import (
     process_mqtt_feedback_message,
     process_mqtt_status_message,
 )
-from app.services.protocol_service import build_relay_command_topic, parse_mqtt_topic
+from app.services.device_service import get_device_by_serial_with_protocol
+from app.services.protocol_profile_service import render_topic_template
+from app.services.protocol_service import build_protocol_command_topic, parse_mqtt_topic
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +127,27 @@ class MqttClientService:
             try:
                 payload = json.loads(payload_text)
                 topic_info = parse_mqtt_topic(topic)
+                if topic_info.category == "unknown":
+                    device = await get_device_by_serial_with_protocol(
+                        session,
+                        payload.get("serial_number", ""),
+                    )
+                    if device and device.protocol_profile:
+                        for category, template in (
+                            ("status", device.protocol_profile.status_topic_template),
+                            ("feedback", device.protocol_profile.feedback_topic_template),
+                        ):
+                            expected_topic = render_topic_template(
+                                template,
+                                serial_number=payload.get("serial_number", ""),
+                                module_code=payload.get("module_code", ""),
+                            )
+                            if topic == expected_topic:
+                                topic_info.category = category
+                                topic_info.serial_number = payload.get("serial_number")
+                                topic_info.module_code = payload.get("module_code")
+                                topic_info.matched_prefix = template
+                                break
                 self._received_message_count += 1
                 self._last_inbound_topic = topic
                 self._last_inbound_at = datetime.now(timezone.utc)
@@ -170,8 +193,9 @@ class MqttClientService:
         serial_number: str,
         module_code: str,
         payload: dict,
+        command_topic: str | None = None,
     ) -> MqttPublishResult:
-        topic = build_relay_command_topic(serial_number, module_code)
+        topic = command_topic or build_protocol_command_topic(serial_number, module_code)
         # 无论 broker 是否在线，都返回统一结果结构，便于上层记录通信日志和调试。
         if self._client and self._connected:
             self._client.publish(topic, json.dumps(payload, ensure_ascii=False))

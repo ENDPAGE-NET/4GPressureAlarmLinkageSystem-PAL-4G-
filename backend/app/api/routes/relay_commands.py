@@ -23,7 +23,7 @@ from app.services.linkage_service import (
 )
 from app.services.logging_service import write_communication_log, write_operation_log
 from app.services.mqtt_client_service import mqtt_client_service
-from app.services.protocol_service import build_relay_command_payload
+from app.services.protocol_service import build_protocol_command_topic, build_relay_command_payload
 
 router = APIRouter()
 
@@ -34,7 +34,7 @@ async def get_relay_command_target_module(
 ) -> Module | None:
     stmt = (
         select(Module)
-        .options(selectinload(Module.device))
+        .options(selectinload(Module.device).selectinload(Device.protocol_profile))
         .where(Module.id == module_id)
     )
     return (await db.execute(stmt)).scalar_one_or_none()
@@ -81,16 +81,23 @@ async def create_relay_command(
     command = await create_manual_relay_command(db, payload)
     module_with_device = await get_relay_command_target_module(db, payload.module_id)
     if module_with_device and module_with_device.device:
+        protocol_profile = module_with_device.device.protocol_profile
         command_payload = build_relay_command_payload(
             serial_number=module_with_device.device.serial_number,
             module_code=module_with_device.module_code,
             target_state=payload.target_state,
             command_id=command.id,
         )
+        command_topic = build_protocol_command_topic(
+            serial_number=module_with_device.device.serial_number,
+            module_code=module_with_device.module_code,
+            profile=protocol_profile,
+        )
         publish_result = mqtt_client_service.publish_relay_command(
             serial_number=module_with_device.device.serial_number,
             module_code=module_with_device.module_code,
             payload=command_payload.model_dump(),
+            command_topic=command_topic,
         )
         await write_communication_log(
             db,

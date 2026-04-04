@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
 
 from app.core.config import settings
+from app.models.protocol_profile import ProtocolProfile
 from app.schemas.protocol import (
     ProtocolFeedbackResult,
     ProtocolTopicInfo,
     RelayCommandPayload,
 )
+from app.services.protocol_profile_service import render_topic_template
 
 
 def _normalize_topic_prefix(prefix: str) -> list[str]:
@@ -33,6 +35,20 @@ def parse_mqtt_topic(topic: str) -> ProtocolTopicInfo:
 
 def build_relay_command_topic(serial_number: str, module_code: str) -> str:
     return f"{settings.MQTT_COMMAND_TOPIC_PREFIX}/{serial_number}/{module_code}"
+
+
+def build_protocol_command_topic(
+    serial_number: str,
+    module_code: str,
+    profile: ProtocolProfile | None = None,
+) -> str:
+    if profile:
+        return render_topic_template(
+            profile.command_topic_template,
+            serial_number=serial_number,
+            module_code=module_code,
+        )
+    return build_relay_command_topic(serial_number, module_code)
 
 
 def build_relay_command_payload(
