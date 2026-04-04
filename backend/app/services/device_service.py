@@ -8,6 +8,7 @@ from app.models.alarm_record import AlarmRecord
 from app.models.device import Device
 from app.models.device_group import DeviceGroup
 from app.models.module import Module
+from app.models.module_status_history import ModuleStatusHistory
 from app.models.protocol_profile import ProtocolProfile
 from app.models.relay_command import RelayCommand
 from app.models.user import User
@@ -24,6 +25,7 @@ from app.schemas.device import (
     DeviceStatistics,
     DeviceUpdate,
     ModuleCreate,
+    ModuleStatusHistoryPage,
     ModuleStatusReport,
 )
 from app.services.alarm_service import create_alarm_record
@@ -345,6 +347,22 @@ async def update_module_status(
     await db.commit()
     await db.refresh(module)
 
+    # 模块每次状态上报都写入专门的状态历史表，后续统计与轨迹查询不再依赖运行日志反推。
+    status_history = ModuleStatusHistory(
+        module_id=module.id,
+        device_id=module.device_id,
+        source=payload.source,
+        is_online=module.is_online,
+        relay_state=module.relay_state,
+        battery_level=module.battery_level,
+        voltage_value=module.voltage_value,
+        trigger_alarm_type=payload.trigger_alarm_type,
+        alarm_message=payload.alarm_message,
+        reported_at=module.last_seen_at or datetime.now(timezone.utc),
+    )
+    db.add(status_history)
+    await db.commit()
+
     await write_communication_log(
         db,
         channel=payload.source if payload.source != "http_report" else "http",
@@ -401,6 +419,32 @@ async def update_module_status(
 
     refreshed = await get_module_by_id(db, module.id)
     return refreshed or module
+
+
+async def get_module_status_history_page(
+    db: AsyncSession,
+    module_id: int,
+    limit: int = 20,
+    offset: int = 0,
+) -> ModuleStatusHistoryPage:
+    count_stmt = select(func.count(ModuleStatusHistory.id)).where(
+        ModuleStatusHistory.module_id == module_id
+    )
+    stmt = (
+        select(ModuleStatusHistory)
+        .where(ModuleStatusHistory.module_id == module_id)
+        .order_by(ModuleStatusHistory.reported_at.desc(), ModuleStatusHistory.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    total = (await db.execute(count_stmt)).scalar_one() or 0
+    items = list((await db.execute(stmt)).scalars().all())
+    return ModuleStatusHistoryPage(
+        total=total,
+        items=items,
+        limit=limit,
+        offset=offset,
+    )
 
 
 async def get_device_overview(db: AsyncSession, user: User) -> DeviceOverview:

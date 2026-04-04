@@ -23,6 +23,29 @@ class ModuleDetail(ModuleRead):
     device_id: int
 
 
+class ModuleStatusHistoryRead(BaseModel):
+    id: int
+    module_id: int
+    device_id: int
+    source: str
+    is_online: bool
+    relay_state: bool | None
+    battery_level: int | None
+    voltage_value: float | None
+    trigger_alarm_type: str | None
+    alarm_message: str | None
+    reported_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ModuleStatusHistoryPage(BaseModel):
+    total: int
+    items: list[ModuleStatusHistoryRead]
+    limit: int
+    offset: int
+
+
 class ModuleStatusReport(BaseModel):
     is_online: bool
     source: str = Field(default="http_report", max_length=32)

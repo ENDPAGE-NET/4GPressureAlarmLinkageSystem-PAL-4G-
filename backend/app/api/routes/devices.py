@@ -23,6 +23,7 @@ from app.schemas.device import (
     ModuleCreate,
     ModuleDeleteResult,
     ModuleDetail,
+    ModuleStatusHistoryPage,
     ModuleStatusReport,
 )
 from app.services.logging_service import write_operation_log
@@ -48,6 +49,7 @@ from app.services.device_service import (
     get_module_by_code,
     list_device_groups,
     list_devices,
+    get_module_status_history_page,
     unbind_device,
     update_device_group,
     update_device,
@@ -250,6 +252,23 @@ async def read_module_detail(
     if current_user.role != "super_admin" and module.device.owner_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     return ModuleDetail.model_validate(module)
+
+
+@router.get("/modules/{module_id}/status-history", response_model=ModuleStatusHistoryPage)
+async def read_module_status_history(
+    module_id: int,
+    limit: int = 20,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ModuleStatusHistoryPage:
+    module = await get_module_by_id(db, module_id)
+    if not module:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found")
+    if current_user.role != "super_admin" and module.device.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    return await get_module_status_history_page(db, module_id, limit=limit, offset=offset)
 
 
 @router.delete("/modules/{module_id}", response_model=ModuleDeleteResult)
