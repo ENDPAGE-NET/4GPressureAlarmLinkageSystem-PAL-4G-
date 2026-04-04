@@ -16,8 +16,8 @@
             :default-active="route.path"
             class="layout-menu"
             background-color="transparent"
-            text-color="#8faab6"
-            active-text-color="#d7e2e9"
+            :text-color="menuTextColor"
+            :active-text-color="menuActiveTextColor"
             router
           >
             <el-menu-item
@@ -48,7 +48,7 @@
             <el-icon><Menu /></el-icon>
           </el-button>
           <div>
-            <div class="layout-header__eyebrow">{{ t('app.phase') }}</div>
+            <div class="layout-header__eyebrow">{{ phaseLabel }}</div>
             <h1>{{ pageTitle }}</h1>
           </div>
         </div>
@@ -100,8 +100,8 @@
           </div>
           <div class="section-banner__meta">
             <el-tag :type="realtimeTagType" effect="dark" round>{{ realtimeStatusLabel }}</el-tag>
-            <el-tag effect="plain" round>{{ settingsStore.themeMode }}</el-tag>
-            <el-tag effect="plain" round>{{ settingsStore.localeCode }}</el-tag>
+            <el-tag effect="plain" round>{{ currentThemeLabel }}</el-tag>
+            <el-tag effect="plain" round>{{ currentLocaleLabel }}</el-tag>
           </div>
         </div>
         <router-view />
@@ -198,6 +198,15 @@ const localeOptions = computed(() =>
 
 const currentLocaleLabel = computed(() => localeLabels[settingsStore.localeCode])
 const currentThemeLabel = computed(() => themeLabels[settingsStore.themeMode][settingsStore.localeCode])
+const phaseLabel = computed(() =>
+  settingsStore.localeCode === 'zh-CN' ? '二期正式后台' : t('app.phase'),
+)
+const menuTextColor = computed(() =>
+  settingsStore.themeMode === 'light' ? '#5b7884' : '#8faab6',
+)
+const menuActiveTextColor = computed(() =>
+  settingsStore.themeMode === 'light' ? '#14313d' : '#d7e2e9',
+)
 const realtimeTagType = computed(() => {
   if (realtimeStatus.value === 'connected') return 'success'
   if (realtimeStatus.value === 'connecting') return 'warning'
@@ -236,9 +245,10 @@ function handleLogout() {
   padding: 24px 20px;
   border-right: 1px solid var(--pal-line);
   background:
-    linear-gradient(180deg, rgba(6, 18, 25, 0.94), rgba(8, 23, 31, 0.98)),
+    linear-gradient(180deg, var(--pal-shell-strong), var(--pal-shell-soft)),
     radial-gradient(circle at top, rgba(51, 198, 216, 0.08), transparent 35%);
   backdrop-filter: blur(18px);
+  color: var(--pal-shell-text);
 }
 
 .layout-brand {
@@ -258,7 +268,7 @@ function handleLogout() {
 
 .layout-brand p {
   margin: 4px 0 0;
-  color: var(--pal-text-muted);
+  color: var(--pal-shell-text-muted);
   font-size: 0.82rem;
 }
 
@@ -288,11 +298,21 @@ function handleLogout() {
   border-radius: 14px;
 }
 
+.layout-menu :deep(.el-menu-item:hover) {
+  background: color-mix(in srgb, var(--pal-primary) 14%, transparent);
+}
+
 .layout-nav-groups {
   display: grid;
   gap: 18px;
   flex: 1;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.layout-nav-groups::-webkit-scrollbar {
+  display: none;
 }
 
 .layout-nav-group__title {
@@ -313,8 +333,8 @@ function handleLogout() {
   padding: 14px;
   border-radius: var(--pal-radius-md);
   border: 1px solid var(--pal-line);
-  color: var(--pal-text-muted);
-  background: rgba(255, 255, 255, 0.02);
+  color: var(--pal-shell-text-muted);
+  background: var(--pal-shell-card);
 }
 
 .layout-role {
@@ -335,9 +355,10 @@ function handleLogout() {
   justify-content: space-between;
   gap: 18px;
   padding: 18px 28px;
-  background: rgba(5, 19, 28, 0.72);
+  background: var(--pal-header-bg);
   backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--pal-line);
+  color: var(--pal-header-text);
 }
 
 .layout-header__left,
@@ -372,7 +393,7 @@ function handleLogout() {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--pal-text);
+  color: var(--pal-header-text);
   cursor: pointer;
 }
 

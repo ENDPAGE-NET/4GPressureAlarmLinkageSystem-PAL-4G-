@@ -139,7 +139,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import {
   getDashboardChartsApi,
@@ -155,12 +155,14 @@ import PanelCard from '@/components/PanelCard.vue'
 import StatusPill from '@/components/StatusPill.vue'
 import { useI18n } from '@/composables/useI18n'
 import { usePolling } from '@/composables/usePolling'
+import { useRealtime } from '@/composables/useRealtime'
 import { useAuthStore } from '@/stores/auth'
 import type {
   DashboardAlarmItem,
   DashboardCharts,
   DashboardHome,
   DashboardRelayCommandItem,
+  RealtimeEventMessage,
 } from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 import { resolveAlarmTypeLabel, resolveRelayTargetLabel } from '@/utils/labels'
@@ -177,6 +179,32 @@ const recentCommands = ref<DashboardRelayCommandItem[]>([])
 
 const isManagerDashboard = computed(() => authStore.profile?.role === 'manager')
 const modulePanels = computed(() => home.value?.module_panels ?? [])
+const realtimeRefreshEvents = new Set([
+  'module.status_updated',
+  'alarm.created',
+  'alarm.recovered',
+  'relay_command.created',
+  'relay_command.updated',
+])
+
+let realtimeRefreshTimer: number | null = null
+
+function scheduleRealtimeRefresh() {
+  if (realtimeRefreshTimer !== null) {
+    window.clearTimeout(realtimeRefreshTimer)
+  }
+  realtimeRefreshTimer = window.setTimeout(() => {
+    realtimeRefreshTimer = null
+    void refreshAll()
+  }, 180)
+}
+
+function handleRealtimeEvent(message: RealtimeEventMessage) {
+  if (!realtimeRefreshEvents.has(message.event)) {
+    return
+  }
+  scheduleRealtimeRefresh()
+}
 
 async function refreshAll() {
   try {
@@ -208,10 +236,18 @@ async function refreshAll() {
 }
 
 const { start } = usePolling(refreshAll, 30000)
+useRealtime('dashboard', handleRealtimeEvent)
 
 onMounted(async () => {
   await refreshAll()
   start()
+})
+
+onBeforeUnmount(() => {
+  if (realtimeRefreshTimer !== null) {
+    window.clearTimeout(realtimeRefreshTimer)
+    realtimeRefreshTimer = null
+  }
 })
 </script>
 

@@ -2,6 +2,7 @@ import { http } from './http'
 import type {
   ChangePasswordPayload,
   UserCreatePayload,
+  UserDeleteResult,
   UserProfile,
   UserRead,
   UserResetPasswordPayload,
@@ -20,6 +21,11 @@ export async function createUserApi(payload: UserCreatePayload) {
 
 export async function updateUserApi(userId: number, payload: UserUpdatePayload) {
   const { data } = await http.patch<UserRead>(`/users/${userId}`, payload)
+  return data
+}
+
+export async function deleteUserApi(userId: number) {
+  const { data } = await http.delete<UserDeleteResult>(`/users/${userId}`)
   return data
 }
 

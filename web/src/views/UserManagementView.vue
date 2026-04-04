@@ -19,14 +19,6 @@
       </div>
     </PanelCard>
 
-    <el-alert
-      :title="t('users.deleteUnavailable')"
-      type="info"
-      :closable="false"
-      show-icon
-      style="margin-bottom: 20px"
-    />
-
     <PanelCard :title="t('users.title')" :description="t('users.description')">
       <DataState :loading="loading" :error="error" :empty="!filteredUsers.length" @retry="fetchUsers">
         <div class="data-table">
@@ -50,6 +42,9 @@
               <template #default="{ row }">
                 <el-button link type="primary" @click="openEditDialog(row)">{{ t('common.edit') }}</el-button>
                 <el-button link type="warning" @click="openResetDialog(row)">{{ t('users.resetPassword') }}</el-button>
+                <el-button v-if="!isCurrentUser(row)" link type="danger" @click="handleDeleteUser(row)">
+                  {{ t('common.delete') }}
+                </el-button>
                 <el-button
                   link
                   :type="row.is_active ? 'danger' : 'success'"
@@ -107,17 +102,25 @@
 
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, reactive, ref } from 'vue'
 
-import { useI18n } from '@/composables/useI18n'
+import {
+  createUserApi,
+  deleteUserApi,
+  getUsersApi,
+  resetUserPasswordApi,
+  updateUserApi,
+} from '@/api/users'
 import DataState from '@/components/DataState.vue'
 import PanelCard from '@/components/PanelCard.vue'
-import { createUserApi, getUsersApi, resetUserPasswordApi, updateUserApi } from '@/api/users'
+import { useI18n } from '@/composables/useI18n'
+import { useAuthStore } from '@/stores/auth'
 import type { UserCreatePayload, UserRead } from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 const loading = ref(true)
 const error = ref('')
 const users = ref<UserRead[]>([])
@@ -214,6 +217,14 @@ function openResetDialog(user: UserRead) {
   resetDialogVisible.value = true
 }
 
+function isCurrentUser(user: UserRead) {
+  return user.id === authStore.profile?.id
+}
+
+function getDeleteDialogMessage(user: UserRead) {
+  return `${t('users.deleteConfirmPrefix')} ${user.username} ${t('users.deleteConfirmSuffix')}`
+}
+
 async function submitEdit() {
   const valid = await editFormRef.value?.validate().catch(() => false)
   if (!valid) return
@@ -270,6 +281,24 @@ async function toggleUserStatus(user: UserRead) {
     await fetchUsers()
   } catch (err: any) {
     ElMessage.error(err.response?.data?.detail || t('users.statusFailed'))
+  }
+}
+
+async function handleDeleteUser(user: UserRead) {
+  try {
+    await ElMessageBox.confirm(
+      getDeleteDialogMessage(user),
+      t('users.deleteTitle'),
+      {
+        type: 'warning',
+      },
+    )
+    await deleteUserApi(user.id)
+    ElMessage.success(t('users.deleteSuccess'))
+    await fetchUsers()
+  } catch (err: any) {
+    if (err === 'cancel' || err?.message === 'cancel') return
+    ElMessage.error(err.response?.data?.detail || t('users.deleteFailed'))
   }
 }
 

@@ -66,7 +66,7 @@
             <el-table-column :label="t('devices.table.latestAlarmTime')" min-width="180">
               <template #default="{ row }">{{ formatDateTime(row.latest_alarm_time) }}</template>
             </el-table-column>
-            <el-table-column :label="t('common.actions')" min-width="320" fixed="right">
+            <el-table-column :label="t('common.actions')" min-width="320">
               <template #default="{ row }">
                 <el-button type="primary" link @click="router.push(`/devices/${row.device_id}`)">
                   {{ t('common.details') }}
@@ -175,7 +175,7 @@
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import {
@@ -195,8 +195,9 @@ import DataState from '@/components/DataState.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import StatusPill from '@/components/StatusPill.vue'
 import { useI18n } from '@/composables/useI18n'
+import { useRealtime } from '@/composables/useRealtime'
 import { useAuthStore } from '@/stores/auth'
-import type { DeviceGroupRead, DeviceMonitoringItem, DeviceRead, UserRead } from '@/types/domain'
+import type { DeviceGroupRead, DeviceMonitoringItem, DeviceRead, RealtimeEventMessage, UserRead } from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 import { resolveAlarmTypeLabel } from '@/utils/labels'
 import { deviceStatusMeta } from '@/utils/status'
@@ -251,6 +252,32 @@ const canManageDevices = computed(
 const deviceDialogTitle = computed(() =>
   t(deviceDialogMode.value === 'create' ? 'devices.createDialogTitle' : 'devices.editDialogTitle'),
 )
+const realtimeRefreshEvents = new Set([
+  'module.status_updated',
+  'alarm.created',
+  'alarm.recovered',
+  'relay_command.created',
+  'relay_command.updated',
+])
+
+let realtimeRefreshTimer: number | null = null
+
+function scheduleRealtimeRefresh() {
+  if (realtimeRefreshTimer !== null) {
+    window.clearTimeout(realtimeRefreshTimer)
+  }
+  realtimeRefreshTimer = window.setTimeout(() => {
+    realtimeRefreshTimer = null
+    void fetchDevices()
+  }, 180)
+}
+
+function handleRealtimeEvent(message: RealtimeEventMessage) {
+  if (!realtimeRefreshEvents.has(message.event)) {
+    return
+  }
+  scheduleRealtimeRefresh()
+}
 
 const deviceRules: FormRules<typeof deviceForm> = {
   name: [{ required: true, message: t('devices.validations.nameRequired'), trigger: 'blur' }],
@@ -466,5 +493,16 @@ async function handleUnbind(deviceId: number) {
   }
 }
 
-void fetchDevices()
+useRealtime('devices', handleRealtimeEvent)
+
+onMounted(() => {
+  void fetchDevices()
+})
+
+onBeforeUnmount(() => {
+  if (realtimeRefreshTimer !== null) {
+    window.clearTimeout(realtimeRefreshTimer)
+    realtimeRefreshTimer = null
+  }
+})
 </script>

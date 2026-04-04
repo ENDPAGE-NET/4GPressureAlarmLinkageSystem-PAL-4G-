@@ -113,7 +113,7 @@
                 <el-table-column :label="t('moduleControl.lastSeen')" min-width="180">
                   <template #default="{ row }">{{ formatDateTime(row.last_seen_at) }}</template>
                 </el-table-column>
-                <el-table-column v-if="canManageDevice" :label="t('common.actions')" min-width="120" fixed="right">
+                <el-table-column v-if="canManageDevice" :label="t('common.actions')" min-width="120">
                   <template #default="{ row }">
                     <el-button link type="danger" @click="handleDeleteModule(row.id)">
                       {{ t('common.delete') }}
@@ -223,7 +223,7 @@
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getDashboardDeviceDetailApi } from '@/api/dashboard'
@@ -241,8 +241,9 @@ import PanelCard from '@/components/PanelCard.vue'
 import StatusPill from '@/components/StatusPill.vue'
 import { useI18n } from '@/composables/useI18n'
 import { usePolling } from '@/composables/usePolling'
+import { useRealtime } from '@/composables/useRealtime'
 import { useAuthStore } from '@/stores/auth'
-import type { DashboardDeviceDetail, DeviceRead } from '@/types/domain'
+import type { DashboardDeviceDetail, DeviceRead, RealtimeEventMessage } from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 import {
   resolveAlarmTypeLabel,
@@ -287,6 +288,58 @@ const moduleRules: FormRules<typeof moduleForm> = {
 const deviceId = Number(route.params.id)
 const isAdmin = computed(() => authStore.profile?.role === 'super_admin')
 const canManageDevice = computed(() => Boolean(authStore.profile))
+const moduleIds = computed(() => new Set((device.value?.modules ?? []).map((item) => item.id)))
+const realtimeRefreshEvents = new Set([
+  'module.status_updated',
+  'alarm.created',
+  'alarm.recovered',
+  'relay_command.created',
+  'relay_command.updated',
+])
+
+let realtimeRefreshTimer: number | null = null
+
+function resolveNumericField(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function isRealtimeEventForCurrentDevice(message: RealtimeEventMessage) {
+  if (!realtimeRefreshEvents.has(message.event)) {
+    return false
+  }
+
+  const eventDeviceId = resolveNumericField(message.data.device_id)
+  if (eventDeviceId === deviceId) {
+    return true
+  }
+
+  const eventModuleId = resolveNumericField(message.data.module_id)
+  return eventModuleId !== null && moduleIds.value.has(eventModuleId)
+}
+
+function scheduleRealtimeRefresh() {
+  if (realtimeRefreshTimer !== null) {
+    window.clearTimeout(realtimeRefreshTimer)
+  }
+  realtimeRefreshTimer = window.setTimeout(() => {
+    realtimeRefreshTimer = null
+    void refreshAll()
+  }, 180)
+}
+
+function handleRealtimeEvent(message: RealtimeEventMessage) {
+  if (!isRealtimeEventForCurrentDevice(message)) {
+    return
+  }
+  scheduleRealtimeRefresh()
+}
 
 async function refreshAll() {
   loading.value = detail.value === null
@@ -403,10 +456,18 @@ async function handleControl(moduleId: number, targetState: 'open' | 'closed') {
 }
 
 const { start } = usePolling(refreshAll, 30000)
+useRealtime('device-detail', handleRealtimeEvent)
 
 onMounted(async () => {
   await refreshAll()
   start()
+})
+
+onBeforeUnmount(() => {
+  if (realtimeRefreshTimer !== null) {
+    window.clearTimeout(realtimeRefreshTimer)
+    realtimeRefreshTimer = null
+  }
 })
 </script>
 

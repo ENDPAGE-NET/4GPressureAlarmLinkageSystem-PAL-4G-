@@ -2,7 +2,7 @@
   <div class="login-shell">
     <div class="login-shell__panel">
       <div class="login-shell__hero">
-        <span class="login-shell__eyebrow">PAL 4G FIRST RELEASE</span>
+        <span class="login-shell__eyebrow">{{ t('auth.releaseEyebrow') }}</span>
         <h1>{{ t('auth.loginTitle') }}</h1>
         <p>{{ t('auth.loginDesc') }}</p>
 
@@ -125,10 +125,9 @@ async function handleSubmit() {
   padding: 42px;
   border: 1px solid rgba(125, 177, 188, 0.16);
   border-radius: 28px;
-  background:
-    radial-gradient(circle at top left, rgba(51, 198, 216, 0.16), transparent 34%),
-    linear-gradient(180deg, rgba(8, 25, 34, 0.92), rgba(6, 18, 25, 0.88));
+  background: var(--pal-login-hero-bg);
   box-shadow: 0 32px 80px rgba(2, 10, 15, 0.35);
+  color: var(--pal-login-hero-text);
 }
 
 .login-shell__eyebrow {
@@ -151,7 +150,7 @@ async function handleSubmit() {
 
 .login-shell__hero p {
   max-width: 38rem;
-  color: var(--pal-text-muted);
+  color: var(--pal-login-hero-muted);
   font-size: 1rem;
 }
 

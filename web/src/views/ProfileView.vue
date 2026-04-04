@@ -8,7 +8,7 @@
     </div>
 
     <div class="page-grid profile-grid">
-      <PanelCard :title="t('profile.accountTitle')" :description="t('profile.accountDesc')">
+      <PanelCard :title="t('profile.accountTitle')">
         <div class="kv-list">
           <div class="kv-item">
             <div class="kv-item__label">{{ t('auth.username') }}</div>

@@ -102,14 +102,15 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
 import { getDashboardAlarmPageApi } from '@/api/dashboard'
 import DataState from '@/components/DataState.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import StatusPill from '@/components/StatusPill.vue'
 import { useI18n } from '@/composables/useI18n'
-import type { DashboardAlarmItem } from '@/types/domain'
+import { useRealtime } from '@/composables/useRealtime'
+import type { DashboardAlarmItem, RealtimeEventMessage } from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 import { resolveAlarmTypeLabel } from '@/utils/labels'
 import { alarmStatusMeta, linkageStatusMeta } from '@/utils/status'
@@ -131,6 +132,26 @@ const filters = reactive({
 })
 
 const filteredItems = items
+const realtimeAlarmEvents = new Set(['alarm.created', 'alarm.recovered'])
+
+let realtimeRefreshTimer: number | null = null
+
+function scheduleRealtimeRefresh() {
+  if (realtimeRefreshTimer !== null) {
+    window.clearTimeout(realtimeRefreshTimer)
+  }
+  realtimeRefreshTimer = window.setTimeout(() => {
+    realtimeRefreshTimer = null
+    void fetchPage(currentPage.value)
+  }, 180)
+}
+
+function handleRealtimeEvent(message: RealtimeEventMessage) {
+  if (!realtimeAlarmEvents.has(message.event)) {
+    return
+  }
+  scheduleRealtimeRefresh()
+}
 
 async function fetchPage(page = 1) {
   loading.value = true
@@ -164,5 +185,16 @@ function resetFilters() {
   void fetchPage(1)
 }
 
-void fetchPage()
+useRealtime('alarms', handleRealtimeEvent)
+
+onMounted(() => {
+  void fetchPage()
+})
+
+onBeforeUnmount(() => {
+  if (realtimeRefreshTimer !== null) {
+    window.clearTimeout(realtimeRefreshTimer)
+    realtimeRefreshTimer = null
+  }
+})
 </script>

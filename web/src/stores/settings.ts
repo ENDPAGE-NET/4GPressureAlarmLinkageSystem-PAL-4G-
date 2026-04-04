@@ -5,15 +5,40 @@ import type { LocaleCode, RealtimeStatus, ThemeMode } from '@/types/domain'
 
 const THEME_KEY = 'pal4g-theme-mode'
 const LOCALE_KEY = 'pal4g-locale'
-const WS_URL = import.meta.env.VITE_WS_URL || ''
+
+function resolveWsUrl() {
+  const explicitUrl = String(import.meta.env.VITE_WS_URL || '').trim()
+  if (explicitUrl) {
+    return explicitUrl
+  }
+
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  const apiBase = String(import.meta.env.VITE_API_BASE || '/api/v1').trim()
+  if (!apiBase) {
+    return ''
+  }
+
+  try {
+    const wsUrl = new URL(apiBase, window.location.origin)
+    wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:'
+    wsUrl.pathname = `${wsUrl.pathname.replace(/\/$/, '')}/ws/events`
+    wsUrl.search = ''
+    return wsUrl.toString()
+  } catch {
+    return ''
+  }
+}
 
 export const useSettingsStore = defineStore('settings', () => {
   const themeMode = ref<ThemeMode>((localStorage.getItem(THEME_KEY) as ThemeMode) || 'dark')
   const localeCode = ref<LocaleCode>((localStorage.getItem(LOCALE_KEY) as LocaleCode) || 'zh-CN')
-  const realtimeStatus = ref<RealtimeStatus>(WS_URL ? 'fallback' : 'unsupported')
+  const realtimeStatus = ref<RealtimeStatus>(resolveWsUrl() ? 'fallback' : 'unsupported')
   const realtimeMessage = ref('')
 
-  const wsUrl = computed(() => WS_URL)
+  const wsUrl = computed(() => resolveWsUrl())
   const realtimeEnabled = computed(() => Boolean(wsUrl.value))
 
   function setTheme(mode: ThemeMode) {

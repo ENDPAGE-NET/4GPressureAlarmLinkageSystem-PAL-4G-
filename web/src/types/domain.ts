@@ -13,6 +13,19 @@ export interface UserProfile {
 export type LocaleCode = 'zh-CN' | 'en-US'
 export type ThemeMode = 'dark' | 'light'
 export type RealtimeStatus = 'connected' | 'connecting' | 'fallback' | 'unsupported' | 'error'
+export type RealtimeEventName =
+  | 'alarm.created'
+  | 'alarm.recovered'
+  | 'module.status_updated'
+  | 'relay_command.created'
+  | 'relay_command.updated'
+  | string
+
+export interface RealtimeEventMessage {
+  event: RealtimeEventName
+  timestamp: string
+  data: Record<string, unknown>
+}
 
 export interface ModuleRead {
   id: number
@@ -220,6 +233,11 @@ export interface UserUpdatePayload {
   password?: string
   role?: 'super_admin' | 'manager'
   is_active?: boolean
+}
+
+export interface UserDeleteResult {
+  user_id: number
+  deleted: boolean
 }
 
 export interface UserResetPasswordPayload {
