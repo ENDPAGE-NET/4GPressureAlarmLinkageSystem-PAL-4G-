@@ -51,7 +51,9 @@ backend/pytest-cache-files-*/
 build/
 tmp/
 temp/
+local-sim/
 
 # Local docs templates
 docs/python项目开发经验（环境uv）.md
 docs/git常用命令文档.md
+docs/真机接入资料清单.md

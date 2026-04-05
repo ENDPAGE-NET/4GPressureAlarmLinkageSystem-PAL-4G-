@@ -133,7 +133,7 @@ async def create_device(db: AsyncSession, payload: DeviceCreate, owner: User) ->
     device = Device(
         name=payload.name,
         serial_number=payload.serial_number,
-        owner_id=owner.id if owner.role != "super_admin" else None,
+        owner_id=owner.id,
         status="inactive",
     )
     db.add(device)
