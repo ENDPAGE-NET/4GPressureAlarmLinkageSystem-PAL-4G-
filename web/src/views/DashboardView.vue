@@ -11,9 +11,9 @@
     <DataState :loading="loading" :error="error" @retry="refreshAll">
       <div class="dashboard-grid dashboard-grid--metrics">
         <MetricCard :title="t('dashboard.metrics.devices')" :value="home?.overview.total_devices ?? 0" :tag-label="t('dashboard.metrics.deviceTag')" />
-        <MetricCard :title="t('dashboard.metrics.modules')" :value="home?.overview.total_modules ?? 0" :tag-label="t('dashboard.metrics.moduleTag')" />
+        <MetricCard :title="'已归属设备'" :value="home?.statistics.owned_devices ?? 0" :tag-label="t('dashboard.metrics.deviceTag')" />
         <MetricCard
-          :title="t('dashboard.metrics.onlineModules')"
+          :title="'在线设备'"
           :value="home?.overview.online_modules ?? 0"
           :tag-label="t('dashboard.metrics.onlineTag')"
           tag-type="success"
@@ -27,12 +27,12 @@
       </div>
 
       <template v-if="isManagerDashboard">
-        <PanelCard :title="t('dashboard.modulePanels.title')" :description="t('dashboard.modulePanels.description')">
+        <PanelCard title="我的设备" description="按设备查看实时在线状态、继电器状态和最近报警。">
           <template #header>
-            <span class="dashboard-polling-hint">{{ t('dashboard.modulePanels.autoRefresh') }}</span>
+            <span class="dashboard-polling-hint">30 秒轮询，WebSocket 事件到达后会自动刷新</span>
           </template>
 
-          <DataState :empty="!modulePanels.length" :empty-text="t('dashboard.modulePanels.empty')">
+          <DataState :empty="!modulePanels.length" empty-text="当前账号下暂无设备数据">
             <div class="module-panel-grid">
               <ModuleOverviewCard v-for="item in modulePanels" :key="item.module_id" :item="item" />
             </div>
@@ -79,9 +79,9 @@
                       <StatusPill :value="row.device_status" :mapping="deviceStatusMeta" />
                     </template>
                   </el-table-column>
-                  <el-table-column :label="t('dashboard.monitoring.onlineModules')" min-width="120">
+                  <el-table-column label="在线状态" min-width="120">
                     <template #default="{ row }">
-                      {{ row.online_module_count }}/{{ row.module_count }}
+                      {{ row.online_module_count > 0 ? '在线' : '离线' }}
                     </template>
                   </el-table-column>
                   <el-table-column :label="t('dashboard.monitoring.latestAlarm')" min-width="140">
@@ -104,7 +104,7 @@
               <div class="dashboard-stream">
                 <article v-for="item in recentAlarms" :key="item.id" class="dashboard-stream__item">
                   <div class="dashboard-stream__main">
-                    <strong>{{ item.device_name }} / {{ item.module_code }}</strong>
+                    <strong>{{ item.device_name }}</strong>
                     <p>{{ item.message || resolveAlarmTypeLabel(item.alarm_type, t) }}</p>
                   </div>
                   <div class="dashboard-stream__meta">
@@ -121,7 +121,7 @@
               <div class="dashboard-stream">
                 <article v-for="item in recentCommands" :key="item.id" class="dashboard-stream__item">
                   <div class="dashboard-stream__main">
-                    <strong>{{ item.device_name }} / {{ item.module_code }}</strong>
+                    <strong>{{ item.device_name }}</strong>
                     <p>{{ item.feedback_message || resolveRelayTargetLabel(item.target_state, t) }}</p>
                   </div>
                   <div class="dashboard-stream__meta">

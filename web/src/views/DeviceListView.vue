@@ -45,20 +45,11 @@
                 <StatusPill :value="row.device_status" :mapping="deviceStatusMeta" />
               </template>
             </el-table-column>
-            <el-table-column :label="t('devices.table.modules')" min-width="100">
-              <template #default="{ row }">{{ row.module_count }}</template>
-            </el-table-column>
-            <el-table-column :label="t('devices.table.online')" min-width="100">
-              <template #default="{ row }">{{ row.online_module_count }}</template>
-            </el-table-column>
-            <el-table-column :label="t('devices.table.offline')" min-width="100">
-              <template #default="{ row }">{{ row.offline_module_count }}</template>
+            <el-table-column :label="t('devices.table.online')" min-width="120">
+              <template #default="{ row }">{{ row.online_module_count > 0 ? '在线' : '离线' }}</template>
             </el-table-column>
             <el-table-column v-if="isAdmin" :label="t('devices.owner')" min-width="140">
               <template #default="{ row }">{{ resolveOwnerName(row.owner_id) }}</template>
-            </el-table-column>
-            <el-table-column v-if="isAdmin" :label="t('devices.group')" min-width="160">
-              <template #default="{ row }">{{ resolveGroupName(row.linkage_group_id) }}</template>
             </el-table-column>
             <el-table-column :label="t('devices.table.latestAlarm')" min-width="140">
               <template #default="{ row }">{{ resolveAlarmTypeLabel(row.latest_alarm_type, t) }}</template>
@@ -66,7 +57,7 @@
             <el-table-column :label="t('devices.table.latestAlarmTime')" min-width="180">
               <template #default="{ row }">{{ formatDateTime(row.latest_alarm_time) }}</template>
             </el-table-column>
-            <el-table-column :label="t('common.actions')" min-width="320">
+            <el-table-column :label="t('common.actions')" min-width="260">
               <template #default="{ row }">
                 <el-button type="primary" link @click="router.push(`/devices/${row.device_id}`)">
                   {{ t('common.details') }}
@@ -79,9 +70,6 @@
                 </el-button>
                 <el-button v-if="isAdmin" link type="warning" @click="openOwnerDialog(row)">
                   {{ t('devices.assignOwner') }}
-                </el-button>
-                <el-button v-if="isAdmin" link @click="openGroupDialog(row)">
-                  {{ t('devices.assignGroup') }}
                 </el-button>
                 <el-button v-else link type="danger" @click="handleUnbind(row.device_id)">
                   {{ t('devices.unbind') }}
@@ -155,20 +143,6 @@
         <el-button type="primary" :loading="submitting" @click="submitOwner">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
-
-    <el-dialog v-model="groupDialogVisible" :title="t('devices.assignGroup')" width="420px">
-      <el-form label-position="top">
-        <el-form-item :label="t('devices.group')">
-          <el-select v-model="groupForm.linkage_group_id" clearable style="width: 100%">
-            <el-option v-for="group in groups" :key="group.id" :label="group.name" :value="group.id" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="groupDialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitGroup">{{ t('common.save') }}</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -179,12 +153,10 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import {
-  assignDeviceGroupApi,
   assignDeviceOwnerApi,
   bindDeviceApi,
   createDeviceApi,
   deleteDeviceApi,
-  getDeviceGroupsApi,
   getDeviceMonitoringApi,
   getDevicesApi,
   unbindDeviceApi,
@@ -197,14 +169,13 @@ import StatusPill from '@/components/StatusPill.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useRealtime } from '@/composables/useRealtime'
 import { useAuthStore } from '@/stores/auth'
-import type { DeviceGroupRead, DeviceMonitoringItem, DeviceRead, RealtimeEventMessage, UserRead } from '@/types/domain'
+import type { DeviceMonitoringItem, DeviceRead, RealtimeEventMessage, UserRead } from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 import { resolveAlarmTypeLabel } from '@/utils/labels'
 import { deviceStatusMeta } from '@/utils/status'
 
 type DeviceRow = DeviceMonitoringItem & {
   owner_id: number | null
-  linkage_group_id: number | null
   status: string
 }
 
@@ -216,10 +187,8 @@ const error = ref('')
 const keyword = ref('')
 const devices = ref<DeviceRow[]>([])
 const users = ref<UserRead[]>([])
-const groups = ref<DeviceGroupRead[]>([])
 const currentDeviceId = ref<number | null>(null)
 const ownerDialogVisible = ref(false)
-const groupDialogVisible = ref(false)
 const bindDialogVisible = ref(false)
 const deviceDialogVisible = ref(false)
 const deviceDialogMode = ref<'create' | 'edit'>('create')
@@ -239,10 +208,6 @@ const deviceForm = reactive({
 
 const ownerForm = reactive({
   owner_id: undefined as number | undefined,
-})
-
-const groupForm = reactive({
-  linkage_group_id: undefined as number | undefined,
 })
 
 const isAdmin = computed(() => authStore.profile?.role === 'super_admin')
@@ -332,29 +297,22 @@ function resolveOwnerName(ownerId: number | null) {
   return users.value.find((item) => item.id === ownerId)?.username || `#${ownerId}`
 }
 
-function resolveGroupName(groupId: number | null) {
-  if (!groupId) return '--'
-  return groups.value.find((item) => item.id === groupId)?.name || `#${groupId}`
-}
-
 async function fetchDevices() {
   loading.value = true
   error.value = ''
   try {
     const requests: Promise<unknown>[] = [getDeviceMonitoringApi(), getDevicesApi()]
     if (isAdmin.value) {
-      requests.push(getUsersApi(), getDeviceGroupsApi())
+      requests.push(getUsersApi())
     }
-    const [monitoring, rawDevices, userData, groupData] = await Promise.all(requests)
+    const [monitoring, rawDevices, userData] = await Promise.all(requests)
     const deviceMap = new Map<number, DeviceRead>((rawDevices as DeviceRead[]).map((item) => [item.id, item]))
     devices.value = (monitoring as DeviceMonitoringItem[]).map((item) => ({
       ...item,
       owner_id: deviceMap.get(item.device_id)?.owner_id ?? null,
-      linkage_group_id: deviceMap.get(item.device_id)?.linkage_group_id ?? null,
       status: deviceMap.get(item.device_id)?.status ?? 'inactive',
     }))
     users.value = ((userData as UserRead[]) || []).filter((item) => item.role !== 'super_admin')
-    groups.value = (groupData as DeviceGroupRead[]) || []
   } catch (err: any) {
     error.value = err.response?.data?.detail || t('devices.loadError')
   } finally {
@@ -366,12 +324,6 @@ function openOwnerDialog(row: DeviceRow) {
   currentDeviceId.value = row.device_id
   ownerForm.owner_id = row.owner_id || undefined
   ownerDialogVisible.value = true
-}
-
-function openGroupDialog(row: DeviceRow) {
-  currentDeviceId.value = row.device_id
-  groupForm.linkage_group_id = row.linkage_group_id || undefined
-  groupDialogVisible.value = true
 }
 
 async function submitDevice() {
@@ -416,21 +368,6 @@ async function submitOwner() {
     await fetchDevices()
   } catch (err: any) {
     ElMessage.error(err.response?.data?.detail || t('devices.ownerUpdateFailed'))
-  } finally {
-    submitting.value = false
-  }
-}
-
-async function submitGroup() {
-  if (!currentDeviceId.value) return
-  submitting.value = true
-  try {
-    await assignDeviceGroupApi(currentDeviceId.value, groupForm.linkage_group_id ?? null)
-    ElMessage.success(t('devices.groupUpdated'))
-    groupDialogVisible.value = false
-    await fetchDevices()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.detail || t('devices.groupUpdateFailed'))
   } finally {
     submitting.value = false
   }

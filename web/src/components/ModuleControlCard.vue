@@ -1,5 +1,5 @@
 <template>
-  <PanelCard :title="`${t('common.columns.moduleCode')} ${module.module_code}`" :description="t('moduleControl.description')">
+  <PanelCard title="设备控制" :description="t('moduleControl.description')">
     <div class="module-card">
       <div class="module-card__status">
         <StatusPill :value="module.is_online ? 'all_online' : 'all_offline'" :mapping="deviceStatusMeta" />

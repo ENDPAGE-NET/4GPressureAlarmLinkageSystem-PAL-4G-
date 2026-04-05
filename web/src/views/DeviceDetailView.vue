@@ -8,9 +8,6 @@
       <div class="toolbar__actions">
         <el-button plain @click="router.push('/devices')">{{ t('common.back') }}</el-button>
         <el-button v-if="canManageDevice" @click="openDeviceDialog">{{ t('deviceDetail.editDevice') }}</el-button>
-        <el-button v-if="canManageDevice" type="primary" @click="moduleDialogVisible = true">
-          {{ t('deviceDetail.addModule') }}
-        </el-button>
         <el-button v-if="isAdmin" type="danger" plain @click="handleDeleteDevice">
           {{ t('deviceDetail.deleteDevice') }}
         </el-button>
@@ -37,12 +34,12 @@
               </div>
             </div>
             <div class="kv-item">
-              <div class="kv-item__label">{{ t('deviceDetail.fields.moduleCount') }}</div>
-              <div class="kv-item__value">{{ detail?.module_count ?? 0 }}</div>
+              <div class="kv-item__label">设备联动范围</div>
+              <div class="kv-item__value">同管理者名下全部设备</div>
             </div>
             <div class="kv-item">
-              <div class="kv-item__label">{{ t('deviceDetail.fields.onlineCount') }}</div>
-              <div class="kv-item__value">{{ detail?.online_module_count ?? 0 }}</div>
+              <div class="kv-item__label">在线状态</div>
+              <div class="kv-item__value">{{ primaryModule?.is_online ? '在线' : '离线' }}</div>
             </div>
             <div class="kv-item">
               <div class="kv-item__label">{{ t('deviceDetail.fields.latestAlarm') }}</div>
@@ -56,13 +53,12 @@
         </PanelCard>
 
         <PanelCard :title="t('deviceDetail.controlTitle')" :description="t('deviceDetail.controlDesc')">
-          <DataState :empty="!device?.modules.length" :empty-text="t('deviceDetail.controlEmpty')">
+          <DataState :empty="!primaryModule" :empty-text="t('deviceDetail.controlEmpty')">
             <div class="page-grid module-grid">
               <ModuleControlCard
-                v-for="module in device?.modules ?? []"
-                :key="module.id"
-                :module="module"
-                :loading-state="pendingControls[module.id] || ''"
+                v-if="primaryModule"
+                :module="primaryModule"
+                :loading-state="pendingControls[primaryModule.id] || ''"
                 @control="handleControl"
               />
             </div>
@@ -89,40 +85,11 @@
               <div class="kv-item__label">{{ t('devices.owner') }}</div>
               <div class="kv-item__value">{{ detail?.owner_id ?? '--' }}</div>
             </div>
-          </div>
-        </PanelCard>
-
-        <PanelCard :title="t('deviceDetail.modulesTitle')" :description="t('deviceDetail.modulesDesc')">
-          <DataState :empty="!device?.modules.length" :empty-text="t('deviceDetail.controlEmpty')">
-            <div class="data-table">
-              <el-table :data="device?.modules ?? []">
-                <el-table-column prop="module_code" :label="t('common.columns.moduleCode')" min-width="120" />
-                <el-table-column :label="t('common.status')" min-width="100">
-                  <template #default="{ row }">
-                    <el-tag :type="row.is_online ? 'success' : 'info'" effect="dark" round>
-                      {{ row.is_online ? t('dashboard.modulePanels.status.online') : t('dashboard.modulePanels.status.offline') }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column :label="t('moduleControl.battery')" min-width="100">
-                  <template #default="{ row }">{{ row.battery_level ?? '--' }}</template>
-                </el-table-column>
-                <el-table-column :label="t('moduleControl.voltage')" min-width="100">
-                  <template #default="{ row }">{{ row.voltage_value ?? '--' }}</template>
-                </el-table-column>
-                <el-table-column :label="t('moduleControl.lastSeen')" min-width="180">
-                  <template #default="{ row }">{{ formatDateTime(row.last_seen_at) }}</template>
-                </el-table-column>
-                <el-table-column v-if="canManageDevice" :label="t('common.actions')" min-width="120">
-                  <template #default="{ row }">
-                    <el-button link type="danger" @click="handleDeleteModule(row.id)">
-                      {{ t('common.delete') }}
-                    </el-button>
-                  </template>
-                </el-table-column>
-              </el-table>
+            <div class="kv-item">
+              <div class="kv-item__label">最近在线时间</div>
+              <div class="kv-item__value">{{ formatDateTime(primaryModule?.last_seen_at) }}</div>
             </div>
-          </DataState>
+          </div>
         </PanelCard>
       </div>
 
@@ -131,7 +98,6 @@
           <DataState :empty="!detail?.recent_alarms.length" :empty-text="t('deviceDetail.noAlarms')">
             <div class="data-table">
               <el-table :data="detail?.recent_alarms ?? []">
-                <el-table-column prop="module_code" :label="t('common.columns.moduleCode')" min-width="100" />
                 <el-table-column :label="t('alarms.table.alarmType')" min-width="120">
                   <template #default="{ row }">
                     {{ resolveAlarmTypeLabel(row.alarm_type, t) }}
@@ -157,7 +123,6 @@
           <DataState :empty="!detail?.recent_commands.length" :empty-text="t('deviceDetail.noCommands')">
             <div class="data-table">
               <el-table :data="detail?.recent_commands ?? []">
-                <el-table-column prop="module_code" :label="t('common.columns.moduleCode')" min-width="100" />
                 <el-table-column :label="t('deviceDetail.fields.targetState')" min-width="110">
                   <template #default="{ row }">
                     {{ resolveRelayTargetLabel(row.target_state, t) }}
@@ -204,19 +169,6 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="moduleDialogVisible" :title="t('deviceDetail.addModuleDialogTitle')" width="420px">
-      <el-form ref="moduleFormRef" :model="moduleForm" :rules="moduleRules" label-position="top">
-        <el-form-item :label="t('deviceDetail.moduleCodeLabel')" prop="module_code">
-          <el-input v-model="moduleForm.module_code" :placeholder="t('deviceDetail.moduleCodePlaceholder')" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="moduleDialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="submittingModule" @click="submitModule">
-          {{ t('common.confirm') }}
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -228,10 +180,8 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { getDashboardDeviceDetailApi } from '@/api/dashboard'
 import {
-  createDeviceModuleApi,
   createRelayCommandApi,
   deleteDeviceApi,
-  deleteDeviceModuleApi,
   getDeviceApi,
   updateDeviceApi,
 } from '@/api/devices'
@@ -262,32 +212,22 @@ const detail = ref<DashboardDeviceDetail | null>(null)
 const device = ref<DeviceRead | null>(null)
 const pendingControls = reactive<Record<number, '' | 'open' | 'closed'>>({})
 const deviceDialogVisible = ref(false)
-const moduleDialogVisible = ref(false)
 const deviceFormRef = ref<FormInstance>()
-const moduleFormRef = ref<FormInstance>()
 const submittingDevice = ref(false)
-const submittingModule = ref(false)
 
 const deviceForm = reactive({
   name: '',
   status: 'inactive',
 })
 
-const moduleForm = reactive({
-  module_code: '',
-})
-
 const deviceRules: FormRules<typeof deviceForm> = {
   name: [{ required: true, message: t('devices.validations.nameRequired'), trigger: 'blur' }],
-}
-
-const moduleRules: FormRules<typeof moduleForm> = {
-  module_code: [{ required: true, message: t('deviceDetail.moduleCodePlaceholder'), trigger: 'blur' }],
 }
 
 const deviceId = Number(route.params.id)
 const isAdmin = computed(() => authStore.profile?.role === 'super_admin')
 const canManageDevice = computed(() => Boolean(authStore.profile))
+const primaryModule = computed(() => device.value?.modules?.[0] ?? null)
 const moduleIds = computed(() => new Set((device.value?.modules ?? []).map((item) => item.id)))
 const realtimeRefreshEvents = new Set([
   'module.status_updated',
@@ -383,40 +323,6 @@ async function submitDeviceUpdate() {
     ElMessage.error(err.response?.data?.detail || t('deviceDetail.updateFailed'))
   } finally {
     submittingDevice.value = false
-  }
-}
-
-async function submitModule() {
-  const valid = await moduleFormRef.value?.validate().catch(() => false)
-  if (!valid) return
-
-  submittingModule.value = true
-  try {
-    await createDeviceModuleApi(deviceId, {
-      module_code: moduleForm.module_code.trim(),
-    })
-    ElMessage.success(t('deviceDetail.moduleAddSuccess'))
-    moduleDialogVisible.value = false
-    moduleForm.module_code = ''
-    await refreshAll()
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.detail || t('deviceDetail.moduleAddFailed'))
-  } finally {
-    submittingModule.value = false
-  }
-}
-
-async function handleDeleteModule(moduleId: number) {
-  try {
-    await ElMessageBox.confirm(t('deviceDetail.moduleDeleteConfirm'), t('deviceDetail.moduleDeleteTitle'), {
-      type: 'warning',
-    })
-    await deleteDeviceModuleApi(moduleId)
-    ElMessage.success(t('deviceDetail.moduleDeleteSuccess'))
-    await refreshAll()
-  } catch (err: any) {
-    if (err === 'cancel' || err?.message === 'cancel') return
-    ElMessage.error(err.response?.data?.detail || t('deviceDetail.moduleDeleteFailed'))
   }
 }
 

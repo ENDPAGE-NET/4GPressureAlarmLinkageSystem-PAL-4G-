@@ -13,7 +13,7 @@
           <el-input
             v-model="filters.keyword"
             clearable
-            :placeholder="t('alarms.keywordPlaceholder')"
+            placeholder="按设备名称或设备 SN 搜索"
             style="width: 220px"
           />
           <el-select v-model="filters.alarmType" clearable :placeholder="t('alarms.alarmType')" style="width: 160px">
@@ -60,7 +60,6 @@
         <div class="data-table">
           <el-table :data="filteredItems">
             <el-table-column prop="device_name" :label="t('alarms.table.deviceName')" min-width="180" />
-            <el-table-column prop="module_code" :label="t('alarms.table.moduleCode')" min-width="100" />
             <el-table-column :label="t('alarms.table.alarmType')" min-width="120">
               <template #default="{ row }">
                 {{ resolveAlarmTypeLabel(row.alarm_type, t) }}

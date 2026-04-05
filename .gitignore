@@ -40,6 +40,7 @@ htmlcov/
 venv/
 env/
 backend/tests/
+web/tests/
 backend/*.db
 backend/*.db-journal
 backend/pytest-cache-files-*/

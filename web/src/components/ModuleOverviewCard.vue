@@ -3,7 +3,7 @@
     <header class="module-card__head">
       <div class="module-card__identity">
         <p>{{ item.device_name }}</p>
-        <strong>{{ item.module_code }}</strong>
+        <strong>设备状态</strong>
         <span>{{ item.serial_number }}</span>
       </div>
       <StatusPill :value="item.is_online ? 'online' : 'offline'" :mapping="onlineStatusMeta" />
