@@ -237,10 +237,30 @@ async def get_module_by_code(
     return result.scalar_one_or_none()
 
 
+async def get_module_by_serial_number(
+    db: AsyncSession,
+    serial_number: str,
+) -> Module | None:
+    stmt = select(Module).options(selectinload(Module.device)).where(
+        Module.serial_number == serial_number
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
 async def get_device_by_serial_with_protocol(
     db: AsyncSession,
     serial_number: str,
 ) -> Device | None:
+    module = await get_module_by_serial_number(db, serial_number)
+    if module and module.device:
+        stmt = (
+            select(Device)
+            .options(selectinload(Device.protocol_profile))
+            .where(Device.id == module.device_id)
+        )
+        return (await db.execute(stmt)).scalar_one_or_none()
+
     stmt = (
         select(Device)
         .options(selectinload(Device.protocol_profile))
@@ -260,7 +280,12 @@ async def add_module_to_device(
     device: Device,
     payload: ModuleCreate,
 ) -> Module:
-    module = Module(device_id=device.id, module_code=payload.module_code)
+    module = Module(
+        device_id=device.id,
+        module_code=payload.module_code,
+        serial_number=payload.serial_number or f"{device.serial_number}-{payload.module_code}",
+        imei=payload.imei,
+    )
     db.add(module)
     await db.commit()
     await db.refresh(module)
@@ -273,7 +298,13 @@ async def bind_device_by_serial(
     current_user: User,
 ) -> Device:
     # 绑定逻辑分两种：已存在但未归属的设备归到当前用户；不存在则按 SN 直接建档。
-    existing_device = await get_device_by_serial_number(db, payload.serial_number)
+    # 新模型下优先按模块 SN 绑定所属整套设备，兼容旧的设备级 SN 绑定方式。
+    existing_module = await get_module_by_serial_number(db, payload.serial_number)
+    existing_module = await get_module_by_serial_number(db, payload.serial_number)
+    if existing_module and existing_module.device_id:
+        existing_device = await get_device_by_id(db, existing_module.device_id)
+    else:
+        existing_device = await get_device_by_serial_number(db, payload.serial_number)
     if existing_device:
         if existing_device.owner_id and existing_device.owner_id != current_user.id:
             raise ValueError("Device is already bound to another user")
@@ -428,6 +459,7 @@ async def update_module_status(
             "module_id": module.id,
             "device_id": module.device_id,
             "serial_number": module.device.serial_number if module.device else None,
+            "module_serial_number": module.serial_number,
             "module_code": module.module_code,
             "is_online": module.is_online,
             "relay_state": module.relay_state,

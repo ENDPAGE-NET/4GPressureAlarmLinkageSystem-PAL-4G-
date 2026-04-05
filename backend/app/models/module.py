@@ -12,6 +12,11 @@ class Module(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"), index=True)
     module_code: Mapped[str] = mapped_column(String(32), index=True)
+    # 每个联网模块保留自己的唯一 SN/IMEI，设备表只保留整套设备的聚合标识。
+    serial_number: Mapped[str | None] = mapped_column(
+        String(128), unique=True, index=True, nullable=True
+    )
+    imei: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
     relay_state: Mapped[bool] = mapped_column(Boolean, default=False)
     is_online: Mapped[bool] = mapped_column(Boolean, default=False)
     battery_level: Mapped[int | None] = mapped_column(Integer, nullable=True)

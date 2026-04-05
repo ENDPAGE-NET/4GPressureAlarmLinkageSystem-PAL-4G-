@@ -5,11 +5,15 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ModuleCreate(BaseModel):
     module_code: str = Field(min_length=1, max_length=32)
+    serial_number: str | None = Field(default=None, min_length=1, max_length=128)
+    imei: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class ModuleRead(BaseModel):
     id: int
     module_code: str
+    serial_number: str | None
+    imei: str | None
     relay_state: bool
     is_online: bool
     battery_level: int | None

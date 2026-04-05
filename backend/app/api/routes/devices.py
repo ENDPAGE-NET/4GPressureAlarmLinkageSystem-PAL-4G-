@@ -51,6 +51,7 @@ from app.services.device_service import (
     get_device_statistics,
     get_module_by_id,
     get_module_by_code,
+    get_module_by_serial_number,
     list_device_groups,
     list_device_groups_page,
     list_devices,
@@ -566,6 +567,13 @@ async def create_device_module(
             status_code=status.HTTP_409_CONFLICT,
             detail="Module code already exists in this device",
         )
+    if payload.serial_number:
+        existing_module_by_serial = await get_module_by_serial_number(db, payload.serial_number)
+        if existing_module_by_serial:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Module serial number already exists",
+            )
 
     await add_module_to_device(db, device, payload)
     refreshed_device = await get_device_by_id(db, device_id)

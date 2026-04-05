@@ -27,6 +27,17 @@ async def get_module_by_serial_and_code(
     serial_number: str,
     module_code: str,
 ) -> Module | None:
+    # 新模型优先按模块自身 SN 定位；旧数据继续兼容“设备 SN + 模块编码”。
+    stmt = (
+        select(Module)
+        .options(selectinload(Module.device))
+        .where(Module.serial_number == serial_number, Module.module_code == module_code)
+    )
+    result = await db.execute(stmt)
+    module = result.scalar_one_or_none()
+    if module:
+        return module
+
     stmt = (
         select(Module)
         .join(Device, Module.device_id == Device.id)

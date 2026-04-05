@@ -35,6 +35,8 @@ async def ensure_sqlite_schema_compatibility() -> None:
     async with engine.begin() as conn:
         result = await conn.execute(text("PRAGMA table_info(devices)"))
         device_columns = {row[1] for row in result.fetchall()}
+        result = await conn.execute(text("PRAGMA table_info(modules)"))
+        module_columns = {row[1] for row in result.fetchall()}
 
         migration_statements: list[str] = []
 
@@ -55,6 +57,31 @@ async def ensure_sqlite_schema_compatibility() -> None:
             migration_statements.append(
                 "CREATE INDEX IF NOT EXISTS ix_devices_protocol_profile_id "
                 "ON devices (protocol_profile_id)"
+            )
+
+        if "serial_number" not in module_columns:
+            migration_statements.append(
+                "ALTER TABLE modules ADD COLUMN serial_number VARCHAR(128)"
+            )
+            migration_statements.append(
+                "UPDATE modules "
+                "SET serial_number = ("
+                "SELECT devices.serial_number || '-' || modules.module_code "
+                "FROM devices WHERE devices.id = modules.device_id"
+                ") "
+                "WHERE serial_number IS NULL"
+            )
+            migration_statements.append(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_modules_serial_number "
+                "ON modules (serial_number)"
+            )
+
+        if "imei" not in module_columns:
+            migration_statements.append(
+                "ALTER TABLE modules ADD COLUMN imei VARCHAR(64)"
+            )
+            migration_statements.append(
+                "CREATE INDEX IF NOT EXISTS ix_modules_imei ON modules (imei)"
             )
 
         for statement in migration_statements:

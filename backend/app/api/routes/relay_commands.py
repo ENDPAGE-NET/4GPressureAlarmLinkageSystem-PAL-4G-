@@ -108,19 +108,22 @@ async def create_relay_command(
     module_with_device = await get_relay_command_target_module(db, payload.module_id)
     if module_with_device and module_with_device.device:
         protocol_profile = module_with_device.device.protocol_profile
+        target_serial_number = (
+            module_with_device.serial_number or module_with_device.device.serial_number
+        )
         command_payload = build_relay_command_payload(
-            serial_number=module_with_device.device.serial_number,
+            serial_number=target_serial_number,
             module_code=module_with_device.module_code,
             target_state=payload.target_state,
             command_id=command.id,
         )
         command_topic = build_protocol_command_topic(
-            serial_number=module_with_device.device.serial_number,
+            serial_number=target_serial_number,
             module_code=module_with_device.module_code,
             profile=protocol_profile,
         )
         publish_result = mqtt_client_service.publish_relay_command(
-            serial_number=module_with_device.device.serial_number,
+            serial_number=target_serial_number,
             module_code=module_with_device.module_code,
             payload=command_payload.model_dump(),
             command_topic=command_topic,
