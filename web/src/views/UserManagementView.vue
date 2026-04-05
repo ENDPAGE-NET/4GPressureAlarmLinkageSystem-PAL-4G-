@@ -5,7 +5,7 @@
         <h1>{{ t('users.title') }}</h1>
         <p>{{ t('users.description') }}</p>
       </div>
-      <el-button type="primary" @click="openCreateDialog">{{ t('users.createUser') }}</el-button>
+      <el-button type="primary" :icon="Plus" @click="openCreateDialog">{{ t('users.createUser') }}</el-button>
     </div>
 
     <PanelCard>
@@ -14,7 +14,7 @@
           <el-input v-model="keyword" clearable :placeholder="t('common.search')" style="width: 260px" />
         </div>
         <div class="toolbar__actions">
-          <el-button plain @click="fetchUsers">{{ t('common.refresh') }}</el-button>
+          <el-button plain :icon="RefreshRight" @click="fetchUsers">{{ t('common.refresh') }}</el-button>
         </div>
       </div>
     </PanelCard>
@@ -40,14 +40,15 @@
             </el-table-column>
             <el-table-column :label="t('common.actions')" min-width="220" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" @click="openEditDialog(row)">{{ t('common.edit') }}</el-button>
-                <el-button link type="warning" @click="openResetDialog(row)">{{ t('users.resetPassword') }}</el-button>
-                <el-button v-if="!isCurrentUser(row)" link type="danger" @click="handleDeleteUser(row)">
+                <el-button link type="primary" :icon="EditPen" @click="openEditDialog(row)">{{ t('common.edit') }}</el-button>
+                <el-button link type="warning" :icon="Key" @click="openResetDialog(row)">{{ t('users.resetPassword') }}</el-button>
+                <el-button v-if="!isCurrentUser(row)" link type="danger" :icon="Delete" @click="handleDeleteUser(row)">
                   {{ t('common.delete') }}
                 </el-button>
                 <el-button
                   link
                   :type="row.is_active ? 'danger' : 'success'"
+                  :icon="row.is_active ? CloseBold : Select"
                   @click="toggleUserStatus(row)"
                 >
                   {{ row.is_active ? t('status.device.inactive') : t('status.device.active') }}
@@ -101,6 +102,7 @@
 </template>
 
 <script setup lang="ts">
+import { CloseBold, Delete, EditPen, Key, Plus, RefreshRight, Select } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, reactive, ref } from 'vue'

@@ -258,6 +258,10 @@ textarea {
   align-items: center;
 }
 
+.toolbar__actions .el-button [class*='el-icon'] {
+  margin-right: 2px;
+}
+
 .mono {
   font-family:
     'JetBrains Mono',
@@ -299,11 +303,54 @@ textarea {
   --el-mask-color: rgba(2, 10, 15, 0.6);
 }
 
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner,
+.el-date-editor.el-input__wrapper,
+.el-date-editor .el-input__wrapper {
+  border-radius: 14px;
+  min-height: 44px;
+  box-shadow: 0 0 0 1px rgba(125, 177, 188, 0.14);
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus,
+.el-date-editor .el-input__wrapper.is-focus {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--pal-primary) 48%, transparent),
+    0 10px 24px rgba(14, 76, 92, 0.08);
+}
+
+.el-button {
+  border-radius: 14px;
+  min-height: 42px;
+  padding-inline: 16px;
+}
+
+.el-button.is-circle {
+  border-radius: 999px;
+}
+
+.el-button--small {
+  min-height: 34px;
+  border-radius: 12px;
+}
+
+.el-button--large {
+  min-height: 46px;
+  border-radius: 16px;
+}
+
 .el-button--primary {
   --el-button-bg-color: var(--pal-primary-deep);
   --el-button-border-color: var(--pal-primary-deep);
   --el-button-hover-bg-color: var(--pal-primary);
   --el-button-hover-border-color: var(--pal-primary);
+}
+
+.el-button.is-plain {
+  box-shadow: inset 0 0 0 1px rgba(125, 177, 188, 0.14);
 }
 
 .el-tag {
@@ -347,6 +394,25 @@ textarea {
   display: flex;
   justify-content: flex-end;
   margin-top: 18px;
+}
+
+.table-pagination .el-pagination {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.table-pagination .el-pagination__jump {
+  margin-left: 10px;
+  color: var(--pal-text-muted);
+}
+
+.table-pagination .el-pagination__editor.el-input {
+  width: 54px;
+}
+
+.table-pagination .el-pagination__editor .el-input__wrapper {
+  border-radius: 10px;
+  box-shadow: none;
 }
 
 .state-block {

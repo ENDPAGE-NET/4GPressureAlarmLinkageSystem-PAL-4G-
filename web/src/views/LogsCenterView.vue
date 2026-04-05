@@ -6,8 +6,8 @@
         <p>{{ t('logs.description') }}</p>
       </div>
       <div class="toolbar__actions">
-        <el-button plain @click="download('alarms')">{{ t('exports.alarms') }}</el-button>
-        <el-button type="primary" plain @click="download('commands')">{{ t('exports.commands') }}</el-button>
+        <el-button plain :icon="Download" @click="download('alarms')">{{ t('exports.alarms') }}</el-button>
+        <el-button type="primary" plain :icon="Download" @click="download('commands')">{{ t('exports.commands') }}</el-button>
       </div>
     </div>
 
@@ -33,8 +33,8 @@
           <el-input v-if="activeTab === 'communication'" v-model="filters.secondary" clearable :placeholder="t('logs.filters.communication')" style="width: 180px" />
         </div>
         <div class="toolbar__actions">
-          <el-button type="primary" @click="fetchActive(1)">{{ t('common.applyFilters') }}</el-button>
-          <el-button plain @click="resetFilters">{{ t('common.reset') }}</el-button>
+          <el-button type="primary" :icon="Search" @click="fetchActive(1)">{{ t('common.applyFilters') }}</el-button>
+          <el-button plain :icon="RefreshLeft" @click="resetFilters">{{ t('common.reset') }}</el-button>
         </div>
       </div>
 
@@ -81,7 +81,7 @@
             :page-size="page.size"
             :total="page.total"
             background
-            layout="total, prev, pager, next"
+            layout="total, prev, pager, next, jumper"
             @current-change="fetchActive"
           />
         </div>
@@ -91,6 +91,7 @@
 </template>
 
 <script setup lang="ts">
+import { Download, RefreshLeft, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 

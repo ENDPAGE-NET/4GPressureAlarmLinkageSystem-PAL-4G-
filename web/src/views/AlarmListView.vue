@@ -42,9 +42,9 @@
         </div>
 
         <div class="toolbar__actions">
-          <el-button type="primary" @click="fetchPage(1)">{{ t('common.applyFilters') }}</el-button>
-          <el-button plain @click="resetFilters">{{ t('common.reset') }}</el-button>
-          <el-button type="primary" plain @click="fetchPage(currentPage)">{{ t('common.refresh') }}</el-button>
+          <el-button type="primary" :icon="Search" @click="fetchPage(1)">{{ t('common.applyFilters') }}</el-button>
+          <el-button plain :icon="RefreshLeft" @click="resetFilters">{{ t('common.reset') }}</el-button>
+          <el-button type="primary" plain :icon="RefreshRight" @click="fetchPage(currentPage)">{{ t('common.refresh') }}</el-button>
         </div>
       </div>
     </PanelCard>
@@ -92,7 +92,7 @@
             :page-size="pageSize"
             :total="paginationTotal"
             background
-            layout="total, prev, pager, next"
+            layout="total, prev, pager, next, jumper"
             @current-change="fetchPage"
           />
         </div>
@@ -102,6 +102,7 @@
 </template>
 
 <script setup lang="ts">
+import { RefreshLeft, RefreshRight, Search } from '@element-plus/icons-vue'
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
 import { getDashboardAlarmPageApi } from '@/api/dashboard'

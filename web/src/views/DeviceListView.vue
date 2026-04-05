@@ -6,13 +6,13 @@
         <p>{{ t('devices.description') }}</p>
       </div>
       <div class="toolbar__actions">
-        <el-button v-if="canManageDevices" type="primary" @click="openCreateDialog">
+        <el-button v-if="canManageDevices" type="primary" :icon="Plus" @click="openCreateDialog">
           {{ t('devices.createDevice') }}
         </el-button>
-        <el-button v-if="!isAdmin" @click="bindDialogVisible = true">
+        <el-button v-if="!isAdmin" :icon="Link" @click="bindDialogVisible = true">
           {{ t('devices.bindDevice') }}
         </el-button>
-        <el-button type="primary" plain @click="fetchDevices">{{ t('common.refresh') }}</el-button>
+        <el-button type="primary" plain :icon="RefreshRight" @click="fetchDevices">{{ t('common.refresh') }}</el-button>
       </div>
     </div>
 
@@ -59,19 +59,19 @@
             </el-table-column>
             <el-table-column :label="t('common.actions')" min-width="260">
               <template #default="{ row }">
-                <el-button type="primary" link @click="router.push(`/devices/${row.device_id}`)">
+                <el-button type="primary" link :icon="View" @click="router.push(`/devices/${row.device_id}`)">
                   {{ t('common.details') }}
                 </el-button>
-                <el-button v-if="canManageDevices" link @click="openEditDialog(row)">
+                <el-button v-if="canManageDevices" link :icon="EditPen" @click="openEditDialog(row)">
                   {{ t('common.edit') }}
                 </el-button>
-                <el-button v-if="isAdmin" link type="danger" @click="handleDeleteDevice(row)">
+                <el-button v-if="isAdmin" link type="danger" :icon="Delete" @click="handleDeleteDevice(row)">
                   {{ t('common.delete') }}
                 </el-button>
-                <el-button v-if="isAdmin" link type="warning" @click="openOwnerDialog(row)">
+                <el-button v-if="isAdmin" link type="warning" :icon="User" @click="openOwnerDialog(row)">
                   {{ t('devices.assignOwner') }}
                 </el-button>
-                <el-button v-else link type="danger" @click="handleUnbind(row.device_id)">
+                <el-button v-else link type="danger" :icon="CloseBold" @click="handleUnbind(row.device_id)">
                   {{ t('devices.unbind') }}
                 </el-button>
               </template>
@@ -147,6 +147,7 @@
 </template>
 
 <script setup lang="ts">
+import { CloseBold, Delete, EditPen, Link, Plus, RefreshRight, User, View } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'

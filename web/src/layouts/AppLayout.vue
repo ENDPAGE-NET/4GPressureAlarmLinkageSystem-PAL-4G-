@@ -87,10 +87,7 @@
       <main class="layout-content">
         <div class="section-banner" style="margin-bottom: 20px">
           <div>
-            <strong>{{ settingsStore.realtimeEnabled ? t('common.realtime') : t('common.realtimePolling') }}</strong>
-            <div style="margin-top: 6px; color: var(--pal-text-muted)">
-              {{ welcomeMessage }}
-            </div>
+            <strong>{{ welcomeMessage }}</strong>
           </div>
           <div class="section-banner__meta">
             <el-tag :type="realtimeTagType" effect="dark" round>{{ realtimeStatusLabel }}</el-tag>
