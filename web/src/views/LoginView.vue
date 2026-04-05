@@ -1,15 +1,15 @@
-<template>
+﻿<template>
   <div class="login-shell">
     <div class="login-shell__panel">
       <div class="login-shell__hero">
-        <span class="login-shell__eyebrow">{{ t('auth.releaseEyebrow') }}</span>
-        <h1>{{ t('auth.loginTitle') }}</h1>
-        <p>{{ t('auth.loginDesc') }}</p>
+        <span class="login-shell__eyebrow">{{ loginEyebrow }}</span>
+        <h1>{{ loginTitle }}</h1>
+        <p>{{ loginDescription }}</p>
 
         <div class="login-shell__chips">
-          <el-tag type="primary" effect="dark" round>{{ t('auth.hints.jwt') }}</el-tag>
-          <el-tag type="success" effect="dark" round>{{ t('auth.hints.dashboard') }}</el-tag>
-          <el-tag type="warning" effect="dark" round>{{ t('auth.hints.control') }}</el-tag>
+          <el-tag type="primary" effect="dark" round>{{ securityChipLabel }}</el-tag>
+          <el-tag type="success" effect="dark" round>{{ dashboardChipLabel }}</el-tag>
+          <el-tag type="warning" effect="dark" round>{{ controlChipLabel }}</el-tag>
         </div>
       </div>
 
@@ -62,7 +62,7 @@
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import PanelCard from '@/components/PanelCard.vue'
@@ -73,6 +73,27 @@ const authStore = useAuthStore()
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const isEnglish = computed(() => t('common.language') === 'Language')
+const loginEyebrow = computed(() =>
+  isEnglish.value ? 'PAL 4G Platform' : 'PAL 4G 联动平台',
+)
+const loginTitle = computed(() =>
+  isEnglish.value ? 'Pressure Alarm Linkage Web Console' : '压力报警联动 Web 控制台',
+)
+const loginDescription = computed(() =>
+  isEnglish.value
+    ? 'Unified access to device status, alarm records, and control operations.'
+    : '统一查看设备状态、报警记录与控制操作。',
+)
+const securityChipLabel = computed(() =>
+  isEnglish.value ? 'Secure Access' : '安全登录',
+)
+const dashboardChipLabel = computed(() =>
+  isEnglish.value ? 'Dashboard' : '仪表盘',
+)
+const controlChipLabel = computed(() =>
+  isEnglish.value ? 'Control' : '手动控制',
+)
 
 const formRef = ref<FormInstance>()
 const errorMessage = ref('')

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="layout-shell" :class="{ 'layout-shell--menu-open': menuOpen }">
     <aside class="layout-sidebar">
       <div class="layout-brand">
@@ -32,11 +32,6 @@
           </el-menu>
         </section>
       </div>
-
-      <div class="layout-sidebar__footer">
-        <div class="layout-role">{{ roleLabel }}</div>
-        <span>{{ authStore.profile?.username }}</span>
-      </div>
     </aside>
 
     <div class="layout-backdrop" @click="menuOpen = false" />
@@ -48,7 +43,6 @@
             <el-icon><Menu /></el-icon>
           </el-button>
           <div>
-            <div class="layout-header__eyebrow">{{ phaseLabel }}</div>
             <h1>{{ pageTitle }}</h1>
           </div>
         </div>
@@ -94,14 +88,12 @@
         <div class="section-banner" style="margin-bottom: 20px">
           <div>
             <strong>{{ settingsStore.realtimeEnabled ? t('common.realtime') : t('common.realtimePolling') }}</strong>
-            <div style="margin-top: 4px; color: var(--pal-text-muted)">
-              {{ realtimeStatusLabel }}
+            <div style="margin-top: 6px; color: var(--pal-text-muted)">
+              {{ welcomeMessage }}
             </div>
           </div>
           <div class="section-banner__meta">
             <el-tag :type="realtimeTagType" effect="dark" round>{{ realtimeStatusLabel }}</el-tag>
-            <el-tag effect="plain" round>{{ currentThemeLabel }}</el-tag>
-            <el-tag effect="plain" round>{{ currentLocaleLabel }}</el-tag>
           </div>
         </div>
         <router-view />
@@ -129,11 +121,11 @@ import {
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { localeLabels, themeLabels } from '@/i18n/messages'
 import { useI18n } from '@/composables/useI18n'
 import { useRealtime } from '@/composables/useRealtime'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
-import { localeLabels, themeLabels } from '@/i18n/messages'
 
 const route = useRoute()
 const router = useRouter()
@@ -198,9 +190,11 @@ const localeOptions = computed(() =>
 
 const currentLocaleLabel = computed(() => localeLabels[settingsStore.localeCode])
 const currentThemeLabel = computed(() => themeLabels[settingsStore.themeMode][settingsStore.localeCode])
-const phaseLabel = computed(() =>
-  settingsStore.localeCode === 'zh-CN' ? '二期正式后台' : t('app.phase'),
-)
+const welcomeMessage = computed(() => {
+  return settingsStore.localeCode === 'zh-CN'
+    ? '欢迎使用压力报警联动平台'
+    : 'Welcome to the Pressure Alarm Linkage Platform'
+})
 const menuTextColor = computed(() =>
   settingsStore.themeMode === 'light' ? '#5b7884' : '#8faab6',
 )
@@ -327,21 +321,6 @@ function handleLogout() {
   background: linear-gradient(90deg, rgba(21, 123, 144, 0.85), rgba(51, 198, 216, 0.22));
 }
 
-.layout-sidebar__footer {
-  display: grid;
-  gap: 4px;
-  padding: 14px;
-  border-radius: var(--pal-radius-md);
-  border: 1px solid var(--pal-line);
-  color: var(--pal-shell-text-muted);
-  background: var(--pal-shell-card);
-}
-
-.layout-role {
-  color: var(--pal-accent);
-  font-size: 0.82rem;
-}
-
 .layout-main {
   min-width: 0;
 }
@@ -366,13 +345,6 @@ function handleLogout() {
   display: flex;
   align-items: center;
   gap: 14px;
-}
-
-.layout-header__eyebrow {
-  color: var(--pal-accent);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
 }
 
 .layout-header h1 {

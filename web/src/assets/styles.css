@@ -92,8 +92,8 @@
   --pal-danger: #d74f4f;
   --pal-warning: #cb8b1b;
   --pal-text: #12303b;
-  --pal-text-muted: #54717d;
-  --pal-text-faint: #76909a;
+  --pal-text-muted: #3f5d69;
+  --pal-text-faint: #5d7883;
   --pal-shell-strong: rgba(244, 250, 252, 0.96);
   --pal-shell-soft: rgba(231, 242, 246, 0.98);
   --pal-shell-text: #14313d;
@@ -178,6 +178,16 @@ textarea {
 
 .page-title p {
   margin: 6px 0 0;
+  color: var(--pal-text-muted);
+}
+
+:root[data-theme='light'] .page-title p,
+:root[data-theme='light'] .panel-card__description,
+:root[data-theme='light'] .dashboard-stream__main p,
+:root[data-theme='light'] .dashboard-polling-hint,
+:root[data-theme='light'] .kv-item__label,
+:root[data-theme='light'] .section-banner div,
+:root[data-theme='light'] .layout-nav-group__title {
   color: var(--pal-text-muted);
 }
 
@@ -368,6 +378,16 @@ textarea {
 :root[data-theme='light'] .module-overview-card__metric,
 :root[data-theme='light'] .module-control-card {
   background: rgba(255, 255, 255, 0.6);
+}
+
+:root[data-theme='light'] .el-table,
+:root[data-theme='light'] .el-table th,
+:root[data-theme='light'] .el-table td,
+:root[data-theme='light'] .el-table .cell,
+:root[data-theme='light'] .el-pagination,
+:root[data-theme='light'] .el-descriptions__label,
+:root[data-theme='light'] .el-form-item__label {
+  color: var(--pal-text);
 }
 
 .kv-item__label {

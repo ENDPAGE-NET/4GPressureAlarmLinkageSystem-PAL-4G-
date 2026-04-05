@@ -56,9 +56,9 @@ export const messages: Record<LocaleCode, MessageTree> = {
       applyFilters: '应用筛选',
       language: '语言',
       theme: '主题',
-      realtime: '实时状态',
-      realtimePolling: '轮询版',
-      fallbackPolling: '轮询降级',
+      realtime: '连接状态',
+      realtimePolling: '数据同步方式',
+      fallbackPolling: '轮询模式',
       optional: '可选',
       columns: {
         createdAt: '创建时间',
@@ -119,12 +119,12 @@ export const messages: Record<LocaleCode, MessageTree> = {
       },
     },
     realtime: {
-      connected: 'WebSocket 已连接',
-      connecting: 'WebSocket 连接中',
-      fallback: '实时链路异常，已回退为轮询版',
-      error: '实时连接失败，已回退为轮询版',
-      unsupported: '后端未提供 WebSocket，当前为轮询版',
-      polling: '当前运行在轮询版',
+      connected: '实时同步已连接',
+      connecting: '正在建立实时同步',
+      fallback: '实时同步不可用，当前自动切换为轮询刷新',
+      error: '实时同步连接失败，当前自动切换为轮询刷新',
+      unsupported: '当前使用轮询刷新',
+      polling: '当前使用轮询刷新',
     },
     status: {
       device: {
@@ -545,9 +545,9 @@ export const messages: Record<LocaleCode, MessageTree> = {
       applyFilters: 'Apply Filters',
       language: 'Language',
       theme: 'Theme',
-      realtime: 'Realtime Status',
-      realtimePolling: 'Polling Mode',
-      fallbackPolling: 'Polling Fallback',
+      realtime: 'Connection Status',
+      realtimePolling: 'Sync Mode',
+      fallbackPolling: 'Polling Mode',
       optional: 'Optional',
       columns: {
         createdAt: 'Created At',
@@ -608,12 +608,12 @@ export const messages: Record<LocaleCode, MessageTree> = {
       },
     },
     realtime: {
-      connected: 'WebSocket connected',
-      connecting: 'WebSocket connecting',
-      fallback: 'Realtime failed, switched to polling mode',
-      error: 'Realtime connection failed, switched to polling mode',
-      unsupported: 'Backend WebSocket is unavailable, using polling mode',
-      polling: 'Running in polling mode',
+      connected: 'Realtime sync connected',
+      connecting: 'Establishing realtime sync',
+      fallback: 'Realtime sync is unavailable, switched to polling refresh',
+      error: 'Realtime sync failed, switched to polling refresh',
+      unsupported: 'Using polling refresh',
+      polling: 'Using polling refresh',
     },
     status: {
       device: {
