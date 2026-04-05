@@ -11,6 +11,7 @@ from app.models import (  # noqa: F401
     JobExecutionLog,
     Module,
     ModuleStatusHistory,
+    NotificationSubscription,
     OperationLog,
     ProtocolProfile,
     RelayCommand,
@@ -37,6 +38,10 @@ async def ensure_sqlite_schema_compatibility() -> None:
         device_columns = {row[1] for row in result.fetchall()}
         result = await conn.execute(text("PRAGMA table_info(modules)"))
         module_columns = {row[1] for row in result.fetchall()}
+        result = await conn.execute(text("PRAGMA table_info(users)"))
+        user_columns = {row[1] for row in result.fetchall()}
+        result = await conn.execute(text("PRAGMA table_info(alarm_records)"))
+        alarm_columns = {row[1] for row in result.fetchall()}
 
         migration_statements: list[str] = []
 
@@ -82,6 +87,49 @@ async def ensure_sqlite_schema_compatibility() -> None:
             )
             migration_statements.append(
                 "CREATE INDEX IF NOT EXISTS ix_modules_imei ON modules (imei)"
+            )
+
+        if "wechat_open_id" not in user_columns:
+            migration_statements.append(
+                "ALTER TABLE users ADD COLUMN wechat_open_id VARCHAR(128)"
+            )
+            migration_statements.append(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_wechat_open_id "
+                "ON users (wechat_open_id)"
+            )
+
+        if "wechat_union_id" not in user_columns:
+            migration_statements.append(
+                "ALTER TABLE users ADD COLUMN wechat_union_id VARCHAR(128)"
+            )
+
+        if "wechat_bound_at" not in user_columns:
+            migration_statements.append(
+                "ALTER TABLE users ADD COLUMN wechat_bound_at DATETIME"
+            )
+
+        if "notification_status" not in alarm_columns:
+            migration_statements.append(
+                "ALTER TABLE alarm_records ADD COLUMN notification_status VARCHAR(32) DEFAULT 'pending'"
+            )
+            migration_statements.append(
+                "CREATE INDEX IF NOT EXISTS ix_alarm_records_notification_status "
+                "ON alarm_records (notification_status)"
+            )
+
+        if "notification_result" not in alarm_columns:
+            migration_statements.append(
+                "ALTER TABLE alarm_records ADD COLUMN notification_result TEXT"
+            )
+
+        if "notification_attempts" not in alarm_columns:
+            migration_statements.append(
+                "ALTER TABLE alarm_records ADD COLUMN notification_attempts INTEGER DEFAULT 0"
+            )
+
+        if "notification_sent_at" not in alarm_columns:
+            migration_statements.append(
+                "ALTER TABLE alarm_records ADD COLUMN notification_sent_at DATETIME"
             )
 
         for statement in migration_statements:

@@ -46,6 +46,66 @@ MQTT_FEEDBACK_TOPIC=pal_4g/feedback/#
 MQTT_COMMAND_TOPIC_PREFIX=pal_4g/commands
 ```
 
+## 需要你提供的微信配置
+
+如果要启用真实微信小程序登录和报警订阅消息，请在 `backend/.env` 中补齐以下配置：
+
+```env
+WECHAT_ENABLED=true
+WECHAT_LOGIN_USE_REAL_CODE2SESSION=true
+WECHAT_APP_ID=你的小程序AppID
+WECHAT_APP_SECRET=你的小程序AppSecret
+WECHAT_SUBSCRIBE_TEMPLATE_ID=报警订阅消息模板ID
+WECHAT_SUBSCRIBE_PAGE=pages/alarms/index
+WECHAT_SUBSCRIBE_MINIPROGRAM_STATE=formal
+WECHAT_SUBSCRIBE_LANG=zh_CN
+WECHAT_SUBSCRIBE_FIELD_ALARM_TYPE=thing1
+WECHAT_SUBSCRIBE_FIELD_DEVICE_NAME=thing2
+WECHAT_SUBSCRIBE_FIELD_TRIGGER_TIME=time3
+WECHAT_SUBSCRIBE_FIELD_REMARK=thing4
+ALARM_NOTIFICATION_DISPATCH_INTERVAL_SECONDS=60
+```
+
+你需要提供给我的信息：
+
+- 小程序 `AppID`
+- 小程序 `AppSecret`
+- 订阅消息模板 ID
+- 模板里每个字段对应的 key 名
+- 用户点击消息后要跳转的小程序页面路径
+
+字段 key 很重要，因为微信订阅消息模板的数据键名不是固定的，必须与你在微信公众平台里选定的模板保持一致。当前后端默认按下面 4 个字段发送：
+
+- 报警类型
+- 设备名称
+- 触发时间
+- 备注
+
+如果你实际模板字段不是 `thing1/thing2/time3/thing4`，只需要改 `.env` 里的 `WECHAT_SUBSCRIBE_FIELD_*` 配置，不需要再改代码。
+
+## 当前微信能力说明
+
+- `POST /api/v1/auth/wechat-login`
+  - 当 `WECHAT_LOGIN_USE_REAL_CODE2SESSION=true` 时，后端会使用微信 `code2Session` 交换 `openid`
+  - 当该开关为 `false` 时，仍可继续用 `wechat_open_id` 直传方式本地联调
+- `POST /api/v1/auth/wechat-bind`
+  - 支持真实 `code` 绑定，也支持开发阶段直传 `wechat_open_id`
+- `GET /api/v1/notifications/subscription-status`
+- `POST /api/v1/notifications/subscribe`
+- `POST /api/v1/notifications/unsubscribe`
+- `POST /api/v1/jobs/alarm-notification-dispatch`
+  - 管理员可手动触发一次报警订阅消息派发
+
+## 报警订阅消息派发规则
+
+- 新报警创建后会进入待发送状态
+- APScheduler 会按 `ALARM_NOTIFICATION_DISPATCH_INTERVAL_SECONDS` 周期扫描待发送报警
+- 只有同时满足以下条件才会真正发送：
+  - 设备归属用户已绑定微信
+  - 用户已开启订阅
+  - 系统已配置模板 ID
+- 派发结果会记录到报警通知状态字段和通信日志中
+
 ## 当前默认 topic 约定
 
 状态上报 topic：

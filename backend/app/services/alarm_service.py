@@ -40,6 +40,7 @@ async def create_alarm_record(
         source=payload.source,
         linkage_status=payload.linkage_status,
         linkage_result=payload.linkage_result,
+        notification_status="pending",
         message=payload.message,
     )
     db.add(alarm)

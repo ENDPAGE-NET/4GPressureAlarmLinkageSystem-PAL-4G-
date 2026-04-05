@@ -5,6 +5,7 @@ from app.api.deps import get_current_admin
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.jobs import AlarmRecoveryCheckResult, OfflineCheckResult, SchedulerJobRead, SchedulerStatus
+from app.schemas.jobs import AlarmNotificationDispatchResult
 from app.schemas.maintenance import (
     CleanupResult,
     DatabaseBackupFileRead,
@@ -20,6 +21,7 @@ from app.services.maintenance_service import (
 from app.services.scheduler_service import (
     mark_offline_modules,
     run_alarm_recovery_check_job,
+    run_alarm_notification_dispatch_job,
     run_cleanup_runtime_files_job,
     run_retry_pending_commands_job,
     scheduler,
@@ -99,6 +101,14 @@ async def run_alarm_recovery_check(
 ) -> AlarmRecoveryCheckResult:
     result = await run_alarm_recovery_check_job(trigger_type="manual")
     return AlarmRecoveryCheckResult(**result)
+
+
+@router.post("/alarm-notification-dispatch", response_model=AlarmNotificationDispatchResult)
+async def run_alarm_notification_dispatch(
+    _: User = Depends(get_current_admin),
+) -> AlarmNotificationDispatchResult:
+    result = await run_alarm_notification_dispatch_job(trigger_type="manual")
+    return AlarmNotificationDispatchResult(**result)
 
 
 @router.post("/cleanup-files", response_model=CleanupResult)

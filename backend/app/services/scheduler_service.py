@@ -15,6 +15,7 @@ from app.services.linkage_service import retry_queued_relay_commands
 from app.services.linkage_service import dispatch_recovery_for_alarm
 from app.services.logging_service import write_runtime_log
 from app.services.maintenance_service import cleanup_runtime_files, write_job_execution_log
+from app.services.notification_service import dispatch_pending_alarm_notifications
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone="UTC")
@@ -245,6 +246,47 @@ async def run_alarm_recovery_check_job(
             raise
 
 
+async def run_alarm_notification_dispatch_job(
+    trigger_type: str = "scheduler",
+) -> dict[str, int]:
+    started_at = datetime.now(timezone.utc)
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await dispatch_pending_alarm_notifications(session)
+            await write_runtime_log(
+                session,
+                level="INFO",
+                event="alarm_notification_dispatch",
+                message=(
+                    f"processed {result['processed_count']}, sent {result['sent_count']}, "
+                    f"failed {result['failed_count']}, skipped {result['skipped_count']}"
+                ),
+                context=result,
+            )
+            await write_job_execution_log(
+                session,
+                job_name="alarm_notification_dispatch",
+                trigger_type=trigger_type,
+                status="success",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                message="alarm notification dispatch completed",
+                context=result,
+            )
+            return result
+        except Exception as exc:
+            await write_job_execution_log(
+                session,
+                job_name="alarm_notification_dispatch",
+                trigger_type=trigger_type,
+                status="failed",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                message=str(exc),
+            )
+            raise
+
+
 def start_scheduler() -> None:
     if scheduler.running:
         return
@@ -275,6 +317,13 @@ def start_scheduler() -> None:
         "interval",
         seconds=settings.ALARM_RECOVERY_CHECK_INTERVAL_SECONDS,
         id="alarm-recovery-check",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        run_alarm_notification_dispatch_job,
+        "interval",
+        seconds=settings.ALARM_NOTIFICATION_DISPATCH_INTERVAL_SECONDS,
+        id="alarm-notification-dispatch",
         replace_existing=True,
     )
     scheduler.start()

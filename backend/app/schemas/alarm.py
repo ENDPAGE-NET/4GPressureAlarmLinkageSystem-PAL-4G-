@@ -34,9 +34,13 @@ class AlarmRecordRead(BaseModel):
     source: str
     linkage_status: str
     linkage_result: str | None
+    notification_status: str
+    notification_result: str | None
+    notification_attempts: int
     message: str | None
     triggered_at: datetime
     recovered_at: datetime | None
+    notification_sent_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
 

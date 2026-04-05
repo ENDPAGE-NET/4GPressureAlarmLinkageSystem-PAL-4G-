@@ -15,6 +15,9 @@ class User(Base):
     # 当前业务默认角色是管理人员，device_user 先保留给后续终端用户场景扩展。
     role: Mapped[str] = mapped_column(String(32), default="manager")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    wechat_open_id: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
+    wechat_union_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    wechat_bound_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
