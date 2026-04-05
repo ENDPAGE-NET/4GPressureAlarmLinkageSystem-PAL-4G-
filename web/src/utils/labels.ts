@@ -2,6 +2,8 @@ const alarmTypeLabelKeys: Record<string, string> = {
   low_battery: 'alarms.types.low_battery',
   low_voltage: 'alarms.types.low_voltage',
   high_voltage: 'alarms.types.high_voltage',
+  disconnect: 'alarms.types.disconnect',
+  pressure_abnormal: 'alarms.types.pressure_abnormal',
 }
 
 const relayTargetLabelKeys: Record<string, string> = {

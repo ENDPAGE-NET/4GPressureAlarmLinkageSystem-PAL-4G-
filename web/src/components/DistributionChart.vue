@@ -37,6 +37,8 @@ function translateLabel(label: string) {
     low_battery: 'alarms.types.low_battery',
     low_voltage: 'alarms.types.low_voltage',
     high_voltage: 'alarms.types.high_voltage',
+    disconnect: 'alarms.types.disconnect',
+    pressure_abnormal: 'alarms.types.pressure_abnormal',
     queued: 'status.command.queued',
     pending: 'status.command.pending',
     dispatched: 'status.command.dispatched',

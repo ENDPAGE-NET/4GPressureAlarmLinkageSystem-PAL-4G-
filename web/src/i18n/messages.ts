@@ -142,6 +142,7 @@ export const messages: Record<LocaleCode, MessageTree> = {
       },
       linkage: {
         pending: '待联动',
+        recovery_queued: '?????',
         partial: '部分完成',
         success: '联动成功',
         skipped: '已跳过',
@@ -247,6 +248,8 @@ export const messages: Record<LocaleCode, MessageTree> = {
         low_battery: '低电量报警',
         low_voltage: '低压报警',
         high_voltage: '高压报警',
+        disconnect: '????',
+        pressure_abnormal: '????',
       },
     },
     devices: {
@@ -630,6 +633,7 @@ export const messages: Record<LocaleCode, MessageTree> = {
         recovered: 'Recovered',
       },
       linkage: {
+        recovery_queued: 'Recovery Queued',
         pending: 'Pending',
         partial: 'Partial',
         success: 'Success',
@@ -735,6 +739,8 @@ export const messages: Record<LocaleCode, MessageTree> = {
       types: {
         low_battery: 'Low Battery',
         low_voltage: 'Low Voltage',
+        disconnect: 'Disconnected',
+        pressure_abnormal: 'Pressure Abnormal',
         high_voltage: 'High Voltage',
       },
     },

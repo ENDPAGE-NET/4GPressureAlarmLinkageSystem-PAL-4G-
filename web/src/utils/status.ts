@@ -21,6 +21,7 @@ export const alarmStatusMeta: Record<string, StatusMeta> = {
 
 export const linkageStatusMeta: Record<string, StatusMeta> = {
   pending: { type: 'warning', labelKey: 'status.linkage.pending' },
+  recovery_queued: { type: 'warning', labelKey: 'status.linkage.recovery_queued' },
   partial: { type: 'warning', labelKey: 'status.linkage.partial' },
   success: { type: 'success', labelKey: 'status.linkage.success' },
   skipped: { type: 'info', labelKey: 'status.linkage.skipped' },

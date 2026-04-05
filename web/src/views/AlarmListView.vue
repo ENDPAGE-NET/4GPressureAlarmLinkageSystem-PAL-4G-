@@ -27,6 +27,7 @@
           </el-select>
           <el-select v-model="filters.linkageStatus" clearable :placeholder="t('alarms.linkageStatus')" style="width: 160px">
             <el-option :label="t('status.linkage.pending')" value="pending" />
+            <el-option :label="t('status.linkage.recovery_queued')" value="recovery_queued" />
             <el-option :label="t('status.linkage.success')" value="success" />
             <el-option :label="t('status.linkage.failed')" value="failed" />
             <el-option :label="t('status.linkage.partial')" value="partial" />
