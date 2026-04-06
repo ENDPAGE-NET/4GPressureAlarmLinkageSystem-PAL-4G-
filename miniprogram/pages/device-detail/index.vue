@@ -7,8 +7,8 @@
         <text class="status-tag" :class="dashboard?.device_status === 'active' ? 'status-online' : 'status-offline'">
           {{ getDeviceStatusLabel(dashboard?.device_status || device?.status) }}
         </text>
-        <text class="detail-meta__text">运行通道 {{ runtimeNode ? '已就绪' : '未就绪' }}</text>
-        <text class="detail-meta__text">最近在线 {{ formatDateTime(runtimeNode?.last_seen_at, '--') }}</text>
+        <text class="detail-meta__text">运行通道 {{ runtimeModules.length ? '已就绪' : '未就绪' }}</text>
+        <text class="detail-meta__text">最近在线 {{ formatDateTime(runtimeModules[0]?.last_seen_at, '--') }}</text>
       </view>
     </view>
 
@@ -25,13 +25,17 @@
       </SectionCard>
 
       <SectionCard title="设备状态" subtitle="页面会优先使用实时事件更新，异常时自动回退到轮询。">
-        <template v-if="runtimeNode">
-          <ModuleCard
-            :module="runtimeNode"
-            :loading="submittingModuleId === runtimeNode.id"
-            :target-state="targetState"
-            @toggle="handleToggleRelay"
-          />
+        <template v-if="runtimeModules.length">
+          <view class="module-list">
+            <ModuleCard
+              v-for="item in runtimeModules"
+              :key="item.id"
+              :module="item"
+              :loading="submittingModuleId === item.id"
+              :target-state="targetState"
+              @toggle="handleToggleRelay"
+            />
+          </view>
         </template>
         <EmptyState
           v-else
@@ -115,7 +119,7 @@ const submittingModuleId = ref(0)
 const targetState = ref('')
 const device = ref(null)
 const dashboard = ref(null)
-const runtimeNode = ref(null)
+const runtimeModules = ref([])
 
 let stopRealtime = null
 let pollingTimer = null
@@ -136,7 +140,7 @@ async function loadDetail(showLoading = true) {
     ])
     device.value = deviceData
     dashboard.value = dashboardData
-    runtimeNode.value = Array.isArray(deviceData?.modules) ? deviceData.modules[0] || null : null
+    runtimeModules.value = Array.isArray(deviceData?.modules) ? deviceData.modules : []
   } catch (error) {
     showRequestError(error, '设备详情加载失败')
   } finally {
@@ -300,6 +304,11 @@ onUnmounted(() => {
 
 .detail-actions button {
   width: 100%;
+}
+
+.module-list {
+  display: grid;
+  gap: 18rpx;
 }
 
 .detail-list-item {

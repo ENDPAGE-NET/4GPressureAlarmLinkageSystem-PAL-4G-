@@ -2,7 +2,9 @@
   <view class="panel-card module-card">
     <view class="module-card__head">
       <view>
-        <text class="module-card__title">设备运行状态</text>
+        <text class="module-card__title">
+          {{ module.module_code ? `模块 ${module.module_code}` : '设备运行状态' }}
+        </text>
         <text class="module-card__serial" v-if="module.serial_number || module.imei">
           {{ module.serial_number ? `SN：${module.serial_number}` : `IMEI：${module.imei}` }}
         </text>
@@ -79,6 +81,10 @@ defineEmits(['toggle'])
   display: flex;
   flex-direction: column;
   gap: 20rpx;
+}
+
+.module-card {
+  padding: 28rpx;
 }
 
 .module-card__title {
