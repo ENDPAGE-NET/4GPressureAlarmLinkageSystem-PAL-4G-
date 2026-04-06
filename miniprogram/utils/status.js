@@ -1,4 +1,4 @@
-export function getOnlineStatusLabel(value) {
+﻿export function getOnlineStatusLabel(value) {
   return value ? '在线' : '离线'
 }
 

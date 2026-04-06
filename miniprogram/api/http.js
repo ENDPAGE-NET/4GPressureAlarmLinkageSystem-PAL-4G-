@@ -1,5 +1,6 @@
-import { useAuthStore } from '@/stores/auth'
+﻿import { useAuthStore } from '@/stores/auth'
 import { getApiBase } from '@/utils/config'
+import { normalizeErrorMessage } from '@/utils/errors'
 
 function buildUrl(path) {
   if (/^https?:\/\//.test(path)) {
@@ -62,13 +63,22 @@ export function request(options) {
           redirectToLogin()
         }
 
-        const error = new Error(data?.detail || `请求失败（${statusCode}）`)
+        const message = normalizeErrorMessage(
+          data?.detail || data?.message || '',
+          statusCode,
+          `请求失败（${statusCode}）`,
+        )
+        const error = new Error(message)
         error.statusCode = statusCode
-        error.detail = data?.detail
+        error.detail = data?.detail || data?.message || ''
         reject(error)
       },
       fail: (error) => {
-        reject(new Error(error?.errMsg || '网络请求失败'))
+        reject(
+          new Error(
+            normalizeErrorMessage(error?.errMsg || '', 0, '网络请求失败，请检查网络连接'),
+          ),
+        )
       },
     })
   })

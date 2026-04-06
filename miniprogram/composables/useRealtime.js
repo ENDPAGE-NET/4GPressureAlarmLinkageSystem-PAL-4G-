@@ -1,4 +1,4 @@
-import { reactive, readonly } from 'vue'
+﻿import { reactive, readonly } from 'vue'
 
 import { useAuthStore } from '@/stores/auth'
 import { APP_CONFIG, getWsUrl } from '@/utils/config'
@@ -87,13 +87,13 @@ function teardown() {
 function connect() {
   const authStore = useAuthStore()
   if (!authStore.state.token) {
-    setState('fallback', 'missing token')
+    setState('fallback', '未检测到登录状态')
     return
   }
 
   const baseUrl = getWsUrl()
   if (!baseUrl) {
-    setState('fallback', 'missing ws url')
+    setState('fallback', '未配置实时服务地址')
     return
   }
 
@@ -125,13 +125,13 @@ function connect() {
     clearHeartbeat()
     socketTask = null
     if (!manuallyClosed) {
-      setState('fallback', 'socket closed')
+      setState('fallback', '实时连接已断开')
       scheduleReconnect()
     }
   })
 
   socketTask.onError(() => {
-    setState('error', 'socket error')
+    setState('error', '实时连接异常')
     clearHeartbeat()
     socketTask = null
     scheduleReconnect()

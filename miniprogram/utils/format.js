@@ -1,4 +1,4 @@
-function pad(value) {
+﻿function pad(value) {
   return String(value).padStart(2, '0')
 }
 
@@ -34,7 +34,7 @@ export function formatRole(role) {
     case 'super_admin':
       return '超级管理员'
     case 'manager':
-      return '设备账户'
+      return '设备账号'
     case 'device_user':
       return '终端用户'
     default:

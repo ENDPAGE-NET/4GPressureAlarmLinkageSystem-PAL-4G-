@@ -1,4 +1,4 @@
-import { computed, reactive, readonly } from 'vue'
+﻿import { computed, reactive, readonly } from 'vue'
 
 import { getCurrentUserApi, loginApi } from '@/api/auth'
 import {
@@ -83,7 +83,7 @@ export function useAuthStore() {
 
     if (showToast) {
       uni.showToast({
-        title: '登录状态已失效，请重新登录',
+        title: '登录已失效，请重新登录',
         icon: 'none',
       })
     }
