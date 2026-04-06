@@ -9,12 +9,13 @@ from paho.mqtt import client as mqtt_client
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.schemas.mqtt_client import MqttClientStatus, MqttPublishResult
+from app.services.device_service import get_device_by_serial_with_protocol
 from app.services.logging_service import write_communication_log, write_runtime_log
 from app.services.mqtt_adapter import (
+    process_mqtt_alarm_message,
     process_mqtt_feedback_message,
     process_mqtt_status_message,
 )
-from app.services.device_service import get_device_by_serial_with_protocol
 from app.services.protocol_profile_service import render_topic_template
 from app.services.protocol_service import build_protocol_command_topic, parse_mqtt_topic
 
@@ -25,7 +26,11 @@ class MqttClientService:
     def __init__(self) -> None:
         self._client: mqtt_client.Client | None = None
         self._connected = False
-        self._subscribed_topics = [settings.MQTT_STATUS_TOPIC, settings.MQTT_FEEDBACK_TOPIC]
+        self._subscribed_topics = [
+            settings.MQTT_STATUS_TOPIC,
+            settings.MQTT_ALARM_TOPIC,
+            settings.MQTT_FEEDBACK_TOPIC,
+        ]
         self._received_message_count = 0
         self._published_message_count = 0
         self._last_inbound_topic: str | None = None
@@ -97,7 +102,6 @@ class MqttClientService:
     ) -> None:
         self._connected = rc == 0
         if rc == 0:
-            # 连接成功后同时订阅状态主题和反馈主题，确保设备上下行都能被消费。
             for topic in self._subscribed_topics:
                 client.subscribe(topic)
             logger.info("MQTT subscribed topics: %s", ",".join(self._subscribed_topics))
@@ -140,7 +144,7 @@ class MqttClientService:
                             expected_topic = render_topic_template(
                                 template,
                                 serial_number=payload.get("serial_number", ""),
-                                module_code=payload.get("module_code", ""),
+                                module_code=payload.get("module_code", "MAIN"),
                             )
                             if topic == expected_topic:
                                 topic_info.category = category
@@ -148,11 +152,11 @@ class MqttClientService:
                                 topic_info.module_code = payload.get("module_code")
                                 topic_info.matched_prefix = template
                                 break
+
                 self._received_message_count += 1
                 self._last_inbound_topic = topic
                 self._last_inbound_at = datetime.now(timezone.utc)
 
-                # 依据 topic 分类分发到状态上报或设备反馈处理链路。
                 if topic_info.category == "feedback":
                     updated_command = await process_mqtt_feedback_message(session, payload)
                     await write_communication_log(
@@ -164,6 +168,20 @@ class MqttClientService:
                         module_code=payload.get("module_code"),
                         payload=payload,
                         message=f"processed mqtt feedback topic {topic}",
+                    )
+                    return
+
+                if topic_info.category == "alarm":
+                    alarm = await process_mqtt_alarm_message(session, payload)
+                    await write_communication_log(
+                        session,
+                        channel="mqtt_alarm",
+                        direction="inbound",
+                        status=alarm.alarm_status,
+                        device_serial=topic_info.serial_number or payload.get("serial_number"),
+                        module_code=payload.get("module_code"),
+                        payload=payload,
+                        message=f"processed mqtt alarm topic {topic}",
                     )
                     return
 
@@ -196,7 +214,6 @@ class MqttClientService:
         command_topic: str | None = None,
     ) -> MqttPublishResult:
         topic = command_topic or build_protocol_command_topic(serial_number, module_code)
-        # 无论 broker 是否在线，都返回统一结果结构，便于上层记录通信日志和调试。
         if self._client and self._connected:
             self._client.publish(topic, json.dumps(payload, ensure_ascii=False))
             self._published_message_count += 1

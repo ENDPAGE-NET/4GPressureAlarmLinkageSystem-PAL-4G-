@@ -3,30 +3,38 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.module import Module
+from app.schemas.alarm import AlarmRecordCreate
 from app.schemas.device import ModuleStatusReport
-from app.schemas.mqtt import MqttRelayFeedbackMessage, MqttStatusMessage
+from app.schemas.mqtt import MqttAlarmMessage, MqttRelayFeedbackMessage, MqttStatusMessage
 from app.schemas.relay import RelayCommandFeedback
+from app.services.alarm_service import create_alarm_record
 from app.services.device_service import update_module_status
-from app.services.linkage_service import apply_relay_command_feedback, get_relay_command_by_id
+from app.services.linkage_service import (
+    apply_relay_command_feedback,
+    dispatch_linkage_for_alarm,
+    get_relay_command_by_id,
+)
 from app.services.protocol_service import map_feedback_payload
+from app.services.realtime_service import realtime_service
 
 
 def normalize_mqtt_status_payload(payload: dict) -> MqttStatusMessage:
-    # MQTT 上报字段先归一化成内部 schema，避免协议字段直接散落到业务代码里。
     return MqttStatusMessage.model_validate(payload)
 
 
 def normalize_mqtt_feedback_payload(payload: dict) -> MqttRelayFeedbackMessage:
-    # 设备反馈也统一走 schema 校验，便于后续替换成真实协议字段映射。
     return MqttRelayFeedbackMessage.model_validate(payload)
+
+
+def normalize_mqtt_alarm_payload(payload: dict) -> MqttAlarmMessage:
+    return MqttAlarmMessage.model_validate(payload)
 
 
 async def get_module_by_serial_and_code(
     db: AsyncSession,
     serial_number: str,
-    module_code: str,
+    module_code: str | None,
 ) -> Module | None:
-    # 新模型优先按模块自身 SN 定位；旧数据继续兼容“设备 SN + 模块编码”。
     stmt = (
         select(Module)
         .join(Module.device)
@@ -52,7 +60,6 @@ async def process_mqtt_status_message(
     if not module:
         raise ValueError("Module not found for incoming MQTT payload")
 
-    # MQTT 状态消息最终复用模块状态更新主链路，避免和 HTTP 上报出现两套规则。
     updated_module = await update_module_status(
         db,
         module,
@@ -69,6 +76,62 @@ async def process_mqtt_status_message(
     return updated_module
 
 
+async def process_mqtt_alarm_message(
+    db: AsyncSession,
+    payload: dict,
+):
+    message = normalize_mqtt_alarm_payload(payload)
+    module = await get_module_by_serial_and_code(
+        db=db,
+        serial_number=message.serial_number,
+        module_code=message.module_code,
+    )
+    if not module:
+        raise ValueError("Module not found for incoming MQTT alarm payload")
+
+    if (
+        message.is_online is not None
+        or message.relay_state is not None
+        or message.battery_level is not None
+        or message.voltage_value is not None
+    ):
+        module = await update_module_status(
+            db,
+            module,
+            ModuleStatusReport(
+                is_online=message.is_online if message.is_online is not None else True,
+                source="mqtt_alarm",
+                relay_state=message.relay_state,
+                battery_level=message.battery_level,
+                voltage_value=message.voltage_value,
+            ),
+        )
+
+    alarm = await create_alarm_record(
+        db,
+        AlarmRecordCreate(
+            module_id=module.id,
+            alarm_type=message.alarm_type,
+            source="mqtt_alarm",
+            message=message.message or "mqtt alarm triggered",
+        ),
+    )
+    await dispatch_linkage_for_alarm(db, alarm)
+    await realtime_service.broadcast(
+        "alarm.created",
+        {
+            "alarm_id": alarm.id,
+            "device_id": module.device_id,
+            "module_id": module.id,
+            "alarm_type": alarm.alarm_type,
+            "alarm_status": alarm.alarm_status,
+            "source": alarm.source,
+        },
+        owner_id=module.device.owner_id if module.device else None,
+    )
+    return alarm
+
+
 async def process_mqtt_feedback_message(
     db: AsyncSession,
     payload: dict,
@@ -78,7 +141,6 @@ async def process_mqtt_feedback_message(
     if not command:
         raise ValueError("Relay command not found for incoming MQTT feedback")
 
-    # 设备 ACK 会直接回写指令执行状态，后续可继续扩展错误码与重试规则。
     feedback_result = map_feedback_payload(
         execution_status=message.execution_status,
         feedback_status=message.feedback_status,

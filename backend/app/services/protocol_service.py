@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 
-from app.core.config import settings
 from app.models.protocol_profile import ProtocolProfile
 from app.schemas.protocol import (
     ProtocolFeedbackResult,
@@ -10,54 +9,46 @@ from app.schemas.protocol import (
 from app.services.protocol_profile_service import render_topic_template
 
 
-def _normalize_topic_prefix(prefix: str) -> list[str]:
-    return [segment for segment in prefix.strip("/").split("/") if segment]
-
-
 def parse_mqtt_topic(topic: str) -> ProtocolTopicInfo:
-    # topic 解析优先基于配置前缀，不把规则硬编码死在业务层。
     parts = [segment for segment in topic.strip("/").split("/") if segment]
-    status_prefix = _normalize_topic_prefix(settings.MQTT_STATUS_TOPIC.replace("#", ""))
-    feedback_prefix = _normalize_topic_prefix(settings.MQTT_FEEDBACK_TOPIC.replace("#", ""))
-
-    for category, prefix in (("status", status_prefix), ("feedback", feedback_prefix)):
-        if len(parts) >= len(prefix) + 2 and parts[: len(prefix)] == prefix:
+    if len(parts) == 4 and parts[0] == "pal4g" and parts[1] == "devices":
+        category = parts[3]
+        if category in {"status", "alarm", "feedback", "command"}:
             return ProtocolTopicInfo(
                 category=category,
-                serial_number=parts[len(prefix)],
-                module_code=parts[len(prefix) + 1],
+                serial_number=parts[2],
+                module_code=None,
                 raw_topic=topic,
-                matched_prefix="/".join(prefix),
+                matched_prefix="pal4g/devices",
             )
 
     return ProtocolTopicInfo(category="unknown", raw_topic=topic)
 
 
-def build_relay_command_topic(serial_number: str, module_code: str) -> str:
-    return f"{settings.MQTT_COMMAND_TOPIC_PREFIX}/{serial_number}/{module_code}"
+def build_relay_command_topic(serial_number: str, module_code: str | None = None) -> str:
+    return f"pal4g/devices/{serial_number}/command"
 
 
 def build_protocol_command_topic(
     serial_number: str,
-    module_code: str,
+    module_code: str | None,
     profile: ProtocolProfile | None = None,
 ) -> str:
     if profile:
         return render_topic_template(
             profile.command_topic_template,
             serial_number=serial_number,
-            module_code=module_code,
+            module_code=module_code or "MAIN",
         )
     return build_relay_command_topic(serial_number, module_code)
 
 
 def build_relay_command_payload(
     serial_number: str,
-    module_code: str,
+    module_code: str | None,
     target_state: str,
     command_id: int,
 ) -> RelayCommandPayload:
-    # 下发 payload 统一在协议层组装，后续替换真实协议字段时只改这一处。
     return RelayCommandPayload(
         serial_number=serial_number,
         module_code=module_code,
@@ -73,7 +64,6 @@ def map_feedback_payload(
     feedback_message: str | None,
     error_code: str | None,
 ) -> ProtocolFeedbackResult:
-    # 设备反馈统一在协议层做错误码与状态归一化，业务层只处理标准状态。
     normalized_feedback_status = feedback_status or "device_ack"
     normalized_execution_status = execution_status
     normalized_feedback_message = feedback_message

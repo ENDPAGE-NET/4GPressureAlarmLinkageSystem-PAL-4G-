@@ -18,7 +18,7 @@ class ProtocolFeedbackResult(BaseModel):
 
 class RelayCommandPayload(BaseModel):
     serial_number: str
-    module_code: str
+    module_code: str | None = None
     command_type: str = "relay_control"
     target_state: str = Field(pattern="^(open|closed)$")
     command_id: int

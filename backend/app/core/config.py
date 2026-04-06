@@ -21,9 +21,10 @@ class Settings(BaseSettings):
     MQTT_USERNAME: str = ""
     MQTT_PASSWORD: str = ""
     MQTT_CLIENT_ID: str = "pal_4g_backend"
-    MQTT_STATUS_TOPIC: str = "pal_4g/status/#"
-    MQTT_FEEDBACK_TOPIC: str = "pal_4g/feedback/#"
-    MQTT_COMMAND_TOPIC_PREFIX: str = "pal_4g/commands"
+    MQTT_STATUS_TOPIC: str = "pal4g/devices/+/status"
+    MQTT_ALARM_TOPIC: str = "pal4g/devices/+/alarm"
+    MQTT_FEEDBACK_TOPIC: str = "pal4g/devices/+/feedback"
+    MQTT_COMMAND_TOPIC_PREFIX: str = "pal4g/devices"
     MQTT_ENABLED: bool = False
 
     LOG_LEVEL: str = "INFO"
