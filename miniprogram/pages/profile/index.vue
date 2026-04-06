@@ -21,13 +21,17 @@
           <text class="profile-info__value">{{ authStore.state.profile?.is_active ? '正常' : '已停用' }}</text>
         </view>
         <view class="profile-info__row">
+          <text class="profile-info__label">微信绑定</text>
+          <text class="profile-info__value">{{ authStore.state.profile?.wechat_bound ? '已绑定' : '未绑定' }}</text>
+        </view>
+        <view class="profile-info__row">
           <text class="profile-info__label">实时连接</text>
           <text class="profile-info__value">{{ realtimeLabel }}</text>
         </view>
       </view>
     </SectionCard>
 
-    <SectionCard title="设置" subtitle="消息订阅、修改密码和退出登录已收纳到设置页，避免“我的”页过长。">
+    <SectionCard title="设置" subtitle="微信绑定、消息订阅、修改密码和退出登录已收纳到设置页，避免“我的”页过长。">
       <button class="primary-button profile-action" @click="openSettings">进入设置</button>
     </SectionCard>
 

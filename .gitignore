@@ -39,7 +39,12 @@ htmlcov/
 .venv/
 venv/
 env/
-backend/tests/
+backend/tests/*
+!backend/tests/conftest.py
+!backend/tests/test_wechat_notifications.py
+backend/tests/__pycache__/
+backend/tests/*.db
+backend/tests/*.db-journal
 web/tests/
 web/playwright-report/
 web/test-results/

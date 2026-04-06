@@ -35,6 +35,16 @@ def _serialize_template_ids(template_ids: list[str]) -> str:
     return json.dumps(template_ids, ensure_ascii=False)
 
 
+def get_available_template_ids(
+    record: NotificationSubscription | None = None,
+) -> list[str]:
+    if settings.WECHAT_SUBSCRIBE_TEMPLATE_ID:
+        return [settings.WECHAT_SUBSCRIBE_TEMPLATE_ID]
+    if record:
+        return _deserialize_template_ids(record.template_ids)
+    return []
+
+
 async def get_subscription_record(
     db: AsyncSession,
     user_id: int,
@@ -52,11 +62,13 @@ def build_subscription_status(
         return NotificationSubscriptionStatus(
             enabled=False,
             template_ids=[],
+            available_template_ids=get_available_template_ids(),
         )
     return NotificationSubscriptionStatus(
         subscription_type=record.subscription_type,
         enabled=record.is_enabled,
         template_ids=_deserialize_template_ids(record.template_ids),
+        available_template_ids=get_available_template_ids(record),
         source=record.source,
         subscribed_at=record.subscribed_at,
         unsubscribed_at=record.unsubscribed_at,

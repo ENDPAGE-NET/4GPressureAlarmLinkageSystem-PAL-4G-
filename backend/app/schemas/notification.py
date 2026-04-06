@@ -7,6 +7,7 @@ class NotificationSubscriptionStatus(BaseModel):
     subscription_type: str = "alarm"
     enabled: bool
     template_ids: list[str]
+    available_template_ids: list[str] = []
     source: str | None = None
     subscribed_at: datetime | None = None
     unsubscribed_at: datetime | None = None

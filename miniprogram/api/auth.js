@@ -18,3 +18,25 @@ export function getCurrentUserApi() {
     method: 'GET',
   })
 }
+
+export function wechatLoginApi(payload) {
+  return request({
+    url: '/auth/wechat-login',
+    method: 'POST',
+    data: payload,
+    header: {
+      'Content-Type': 'application/json',
+    },
+  })
+}
+
+export function wechatBindApi(payload) {
+  return request({
+    url: '/auth/wechat-bind',
+    method: 'POST',
+    data: payload,
+    header: {
+      'Content-Type': 'application/json',
+    },
+  })
+}

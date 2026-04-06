@@ -30,8 +30,12 @@ export function getSubscriptionState() {
   return (
     uni.getStorageSync(SUBSCRIPTION_KEY) || {
       enabled: false,
+      templateIds: [],
+      availableTemplateIds: [],
+      subscribedAt: '',
+      unsubscribedAt: '',
       updatedAt: '',
-      source: 'local',
+      source: 'server',
     }
   )
 }
@@ -40,7 +44,12 @@ export function setSubscriptionState(state) {
   uni.setStorageSync(SUBSCRIPTION_KEY, state)
 }
 
+export function clearSubscriptionState() {
+  uni.removeStorageSync(SUBSCRIPTION_KEY)
+}
+
 export function clearSessionStorage() {
   clearToken()
   clearProfile()
+  clearSubscriptionState()
 }

@@ -2,19 +2,44 @@
   <view class="app-page">
     <view class="hero-panel">
       <text class="settings-title">设置</text>
-      <text class="settings-desc">消息订阅、修改密码和退出登录统一放在这里处理，避免“我的”页承载过多操作。</text>
+      <text class="settings-desc">微信绑定、报警订阅、修改密码和退出登录统一放在这里处理，避免“我的”页承载过多操作。</text>
     </view>
 
-    <SectionCard title="报警消息订阅" subtitle="消息授权已收纳到设置页，统一管理提醒能力。">
+    <SectionCard title="微信账号绑定" subtitle="绑定后可直接使用当前微信登录小程序，无需每次再输入账号密码。">
+      <view class="settings-info__row settings-info__row--compact">
+        <text class="settings-info__label">绑定状态</text>
+        <text class="settings-info__value">{{ authStore.state.profile?.wechat_bound ? '已绑定' : '未绑定' }}</text>
+      </view>
+      <view class="settings-info__row settings-info__row--compact">
+        <text class="settings-info__label">绑定时间</text>
+        <text class="settings-info__value">{{ formatDateTime(authStore.state.profile?.wechat_bound_at, '尚未绑定') }}</text>
+      </view>
+      <button class="secondary-button settings-action" :loading="bindingWechat" @click="handleBindWechat">
+        {{ authStore.state.profile?.wechat_bound ? '重新绑定微信' : '立即绑定微信' }}
+      </button>
+    </SectionCard>
+
+    <SectionCard title="报警消息订阅" subtitle="授权成功后，后端会持久化订阅状态，并按报警任务自动派发通知。">
       <view class="settings-info__row settings-info__row--compact">
         <text class="settings-info__label">授权状态</text>
         <text class="settings-info__value">{{ subscriptionStore.state.enabled ? '已授权' : '未授权' }}</text>
+      </view>
+      <view class="settings-info__row settings-info__row--compact">
+        <text class="settings-info__label">模板编号</text>
+        <text class="settings-info__value">{{ templateIdText }}</text>
       </view>
       <view class="settings-info__row settings-info__row--compact">
         <text class="settings-info__label">最近更新时间</text>
         <text class="settings-info__value">{{ formatDateTime(subscriptionStore.state.updatedAt, '尚未授权') }}</text>
       </view>
       <button class="secondary-button settings-action" @click="handleSubscribe">申请授权</button>
+      <button
+        v-if="subscriptionStore.state.enabled"
+        class="danger-button settings-action"
+        @click="handleUnsubscribe"
+      >
+        停止订阅
+      </button>
     </SectionCard>
 
     <SectionCard title="修改密码" subtitle="修改成功后将自动退出并要求重新登录。">
@@ -42,20 +67,23 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 
 import SectionCard from '@/components/SectionCard.vue'
+import { wechatBindApi } from '@/api/auth'
 import { changePasswordApi } from '@/api/users'
 import { useAuthStore } from '@/stores/auth'
 import { showRequestError } from '@/utils/errors'
 import { formatDateTime } from '@/utils/format'
 import { ensureAuthenticated } from '@/utils/guards'
 import { useSubscriptionStore } from '@/utils/subscription'
+import { requestWechatLoginCode } from '@/utils/wechat'
 
 const authStore = useAuthStore()
 const subscriptionStore = useSubscriptionStore()
 
+const bindingWechat = ref(false)
 const submittingPassword = ref(false)
 const passwordForm = reactive({
   currentPassword: '',
@@ -63,9 +91,53 @@ const passwordForm = reactive({
   confirmPassword: '',
 })
 
-onShow(() => {
-  void ensureAuthenticated()
+const templateIdText = computed(() => {
+  const templateIds = subscriptionStore.state.availableTemplateIds?.length
+    ? subscriptionStore.state.availableTemplateIds
+    : subscriptionStore.state.templateIds
+
+  if (!templateIds?.length) {
+    return '尚未同步到模板编号'
+  }
+  return templateIds.join('、')
 })
+
+onShow(() => {
+  void initSettings()
+})
+
+async function initSettings() {
+  if (!(await ensureAuthenticated())) {
+    return
+  }
+
+  try {
+    await subscriptionStore.syncStatus()
+  } catch (error) {
+    showRequestError(error, '订阅状态同步失败')
+  }
+}
+
+async function handleBindWechat() {
+  if (!(await ensureAuthenticated())) {
+    return
+  }
+
+  bindingWechat.value = true
+  try {
+    const code = await requestWechatLoginCode()
+    await wechatBindApi({ code })
+    await authStore.fetchProfile()
+    uni.showToast({
+      title: '微信绑定成功',
+      icon: 'success',
+    })
+  } catch (error) {
+    showRequestError(error, '微信绑定失败')
+  } finally {
+    bindingWechat.value = false
+  }
+}
 
 async function handleSubscribe() {
   try {
@@ -75,7 +147,19 @@ async function handleSubscribe() {
       icon: 'none',
     })
   } catch (error) {
-    showRequestError(error, '订阅能力待后端联调')
+    showRequestError(error, '订阅授权失败')
+  }
+}
+
+async function handleUnsubscribe() {
+  try {
+    await subscriptionStore.disableAlarmSubscription()
+    uni.showToast({
+      title: '已关闭报警订阅',
+      icon: 'none',
+    })
+  } catch (error) {
+    showRequestError(error, '关闭订阅失败')
   }
 }
 

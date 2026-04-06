@@ -1,6 +1,6 @@
 ﻿import { computed, reactive, readonly } from 'vue'
 
-import { getCurrentUserApi, loginApi } from '@/api/auth'
+import { getCurrentUserApi, loginApi, wechatLoginApi } from '@/api/auth'
 import {
   clearSessionStorage,
   clearProfile,
@@ -75,6 +75,18 @@ export function useAuthStore() {
     }
   }
 
+  async function loginWithWechat(identityPayload) {
+    state.loading = true
+    try {
+      const tokenResponse = await wechatLoginApi(identityPayload)
+      applySession(tokenResponse.access_token, null)
+      await fetchProfile()
+      state.bootstrapped = true
+    } finally {
+      state.loading = false
+    }
+  }
+
   function logout(showToast = false) {
     state.token = ''
     state.profile = null
@@ -95,6 +107,7 @@ export function useAuthStore() {
     initialize,
     fetchProfile,
     login,
+    loginWithWechat,
     logout,
   }
 }

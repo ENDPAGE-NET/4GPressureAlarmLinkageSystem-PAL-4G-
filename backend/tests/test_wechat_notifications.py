@@ -49,7 +49,10 @@ def test_wechat_bind_and_login(client):
     assert me_body["wechat_bound"] is True
 
 
-def test_notification_subscription_status_roundtrip(client):
+def test_notification_subscription_status_roundtrip(client, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "WECHAT_SUBSCRIBE_TEMPLATE_ID", "tmpl_alarm_default")
     headers = _login(client, "admin", "admin123456")
 
     initial_status_response = client.get(
@@ -58,6 +61,7 @@ def test_notification_subscription_status_roundtrip(client):
     )
     assert initial_status_response.status_code == 200
     assert initial_status_response.json()["enabled"] is False
+    assert initial_status_response.json()["available_template_ids"] == ["tmpl_alarm_default"]
 
     subscribe_response = client.post(
         "/api/v1/notifications/subscribe",
@@ -74,6 +78,7 @@ def test_notification_subscription_status_roundtrip(client):
         "tmpl_alarm_triggered",
         "tmpl_alarm_recovered",
     ]
+    assert subscribe_body["available_template_ids"] == ["tmpl_alarm_default"]
     assert subscribe_body["subscribed_at"] is not None
 
     status_response = client.get(

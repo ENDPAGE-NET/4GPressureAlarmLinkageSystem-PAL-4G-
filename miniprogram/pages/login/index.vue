@@ -9,6 +9,14 @@
     </view>
 
     <view class="panel-card login-form">
+      <view v-if="wechatBindMode" class="login-bind-notice">
+        <text class="login-bind-notice__title">当前微信尚未绑定账号</text>
+        <text class="login-bind-notice__desc">
+          请输入已有设备账号和密码，登录成功后系统会自动把当前微信绑定到该账号。
+        </text>
+        <button class="secondary-button login-bind-cancel" @click="cancelWechatBindMode">取消本次绑定</button>
+      </view>
+
       <view class="form-field">
         <text class="form-label">账号</text>
         <input
@@ -32,36 +40,39 @@
       </view>
 
       <button class="primary-button login-submit" :loading="authStore.state.loading" @click="handleLogin">
-        登录并进入控制中心
+        {{ wechatBindMode ? '登录并绑定微信' : '登录并进入控制中心' }}
       </button>
 
-      <button class="secondary-button login-wechat" @click="handleWechatLogin">
-        微信授权登录（待联调）
+      <button class="secondary-button login-wechat" :loading="wechatLoading" @click="handleWechatLogin">
+        {{ wechatBindMode ? '重新获取微信授权' : '微信授权登录' }}
       </button>
 
       <view class="login-tips">
         <text class="login-tips__title">当前版本说明</text>
         <text class="login-tips__item">1. 账号密码登录已可直接联调后端。</text>
-        <text class="login-tips__item">2. 微信授权登录与账号绑定入口已预留，等待后端接入。</text>
-        <text class="login-tips__item">3. 默认接口地址可在 `miniprogram/utils/config.js` 中调整。</text>
+        <text class="login-tips__item">2. 微信授权登录已接通，未绑定账号时可在本页直接完成绑定。</text>
+        <text class="login-tips__item">3. 订阅模板会优先读取后端配置，前端本地配置仅作为开发兜底。</text>
       </view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 
+import { wechatBindApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
-import { APP_CONFIG } from '@/utils/config'
 import { showRequestError } from '@/utils/errors'
+import { requestWechatLoginCode } from '@/utils/wechat'
 
 const authStore = useAuthStore()
 const form = reactive({
   username: '',
   password: '',
 })
+const wechatBindMode = ref(false)
+const wechatLoading = ref(false)
 
 async function redirectIfLoggedIn() {
   await authStore.initialize()
@@ -70,6 +81,12 @@ async function redirectIfLoggedIn() {
       url: '/pages/home/index',
     })
   }
+}
+
+async function bindCurrentWechatAfterLogin() {
+  const code = await requestWechatLoginCode()
+  await wechatBindApi({ code })
+  await authStore.fetchProfile()
 }
 
 async function handleLogin() {
@@ -83,10 +100,24 @@ async function handleLogin() {
 
   try {
     await authStore.login(form.username, form.password)
-    uni.showToast({
-      title: '登录成功',
-      icon: 'success',
-    })
+    if (wechatBindMode.value) {
+      try {
+        await bindCurrentWechatAfterLogin()
+        wechatBindMode.value = false
+        uni.showToast({
+          title: '微信绑定成功，已完成登录',
+          icon: 'success',
+        })
+      } catch (error) {
+        showRequestError(error, '账号已登录，但微信绑定失败，请稍后在设置页重新绑定')
+      }
+    } else {
+      uni.showToast({
+        title: '登录成功',
+        icon: 'success',
+      })
+    }
+
     uni.reLaunch({
       url: '/pages/home/index',
     })
@@ -95,14 +126,38 @@ async function handleLogin() {
   }
 }
 
-function handleWechatLogin() {
-  uni.showModal({
-    title: '微信授权待联调',
-    content: APP_CONFIG.WECHAT_LOGIN_ENABLED
-      ? '后端微信登录接口尚未接入完成，请先使用账号密码登录。'
-      : '当前项目已预留微信授权入口，但默认未启用，请在后端完成接口与配置后再开启。',
-    showCancel: false,
-  })
+async function handleWechatLogin() {
+  wechatLoading.value = true
+  try {
+    const code = await requestWechatLoginCode()
+    await authStore.loginWithWechat({ code })
+    wechatBindMode.value = false
+    uni.showToast({
+      title: '微信登录成功',
+      icon: 'success',
+    })
+    uni.reLaunch({
+      url: '/pages/home/index',
+    })
+  } catch (error) {
+    if (Number(error?.statusCode || 0) === 404) {
+      wechatBindMode.value = true
+      uni.showModal({
+        title: '微信未绑定账号',
+        content: '请继续输入已有设备账号和密码，登录成功后会自动完成微信绑定。',
+        showCancel: false,
+      })
+      return
+    }
+
+    showRequestError(error, '微信登录失败，请稍后重试')
+  } finally {
+    wechatLoading.value = false
+  }
+}
+
+function cancelWechatBindMode() {
+  wechatBindMode.value = false
 }
 
 onShow(() => {
@@ -140,6 +195,35 @@ onShow(() => {
   font-size: 24rpx;
   line-height: 1.7;
   opacity: 0.92;
+}
+
+.login-bind-notice {
+  margin-bottom: 24rpx;
+  padding: 24rpx;
+  border-radius: 22rpx;
+  background: rgba(22, 93, 255, 0.08);
+}
+
+.login-bind-notice__title,
+.login-bind-notice__desc {
+  display: block;
+}
+
+.login-bind-notice__title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #1c467a;
+}
+
+.login-bind-notice__desc {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  line-height: 1.7;
+  color: #587596;
+}
+
+.login-bind-cancel {
+  margin-top: 16rpx;
 }
 
 .login-submit {

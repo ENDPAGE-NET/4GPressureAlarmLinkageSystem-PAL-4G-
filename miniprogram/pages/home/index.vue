@@ -4,7 +4,7 @@
       <text class="home-hero__eyebrow">PAL 4G 移动工作台</text>
       <text class="home-hero__title">你好，{{ profileName }}</text>
       <text class="home-hero__desc">
-        首页现在只保留总览和快捷入口，设备、报警、账号管理分别放到独立页面里处理。
+        首页现在只保留总览和重点提醒，设备、报警、账号管理分别放到独立页面里处理。
       </text>
       <view class="home-hero__meta">
         <text class="status-tag" :class="realtimeStatusClass">{{ realtimeStatusLabel }}</text>
@@ -139,13 +139,15 @@ const subscriptionTitle = computed(() =>
 )
 
 const subscriptionDescription = computed(() => {
-  if (!APP_CONFIG.SUBSCRIPTION_TEMPLATE_IDS.length) {
-    return '订阅模板和后端推送链路还未接入完成，当前只保留授权状态展示。'
-  }
+  const availableTemplateIds = subscriptionStore.state.availableTemplateIds?.length
+    ? subscriptionStore.state.availableTemplateIds
+    : APP_CONFIG.SUBSCRIPTION_TEMPLATE_IDS
 
   return subscriptionStore.state.enabled
     ? `最近授权时间：${formatDateTime(subscriptionStore.state.updatedAt, '刚刚')}`
-    : '完成授权后，后端接入推送链路时即可向你发送报警通知。'
+    : availableTemplateIds.length
+      ? '完成授权后，报警推送会按后端模板配置自动派发到当前微信。'
+      : '当前小程序尚未配置订阅模板，请联系管理员补充模板编号后再授权。'
 })
 
 const subscriptionStatusClass = computed(() =>
@@ -179,6 +181,15 @@ async function loadData(showLoading = true) {
   }
 }
 
+function goPrimary(url) {
+  uni.switchTab?.({
+    url,
+    fail: () => {
+      uni.reLaunch({ url })
+    },
+  })
+}
+
 function startPolling() {
   stopPolling()
   pollingTimer = setInterval(() => {
@@ -195,6 +206,7 @@ function stopPolling() {
 
 onShow(() => {
   void loadData()
+  void subscriptionStore.syncStatus().catch(() => {})
   if (!stopRealtime) {
     stopRealtime = realtime.subscribe((message) => {
       if (
