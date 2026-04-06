@@ -1,48 +1,41 @@
-﻿<template>
+<template>
   <view class="app-page">
     <view class="hero-panel">
       <text class="settings-title">设置</text>
-      <text class="settings-desc">微信绑定、报警订阅、修改密码和退出登录统一放在这里处理，避免“我的”页承载过多操作。</text>
+      <text class="settings-desc">按照小程序常见方式，把安全、通知和会话管理集中到一个独立页面。</text>
     </view>
 
-    <SectionCard title="微信账号绑定" subtitle="绑定后可直接使用当前微信登录小程序，无需每次再输入账号密码。">
-      <view class="settings-info__row settings-info__row--compact">
-        <text class="settings-info__label">绑定状态</text>
-        <text class="settings-info__value">{{ authStore.state.profile?.wechat_bound ? '已绑定' : '未绑定' }}</text>
-      </view>
-      <view class="settings-info__row settings-info__row--compact">
-        <text class="settings-info__label">绑定时间</text>
-        <text class="settings-info__value">{{ formatDateTime(authStore.state.profile?.wechat_bound_at, '尚未绑定') }}</text>
-      </view>
-      <button class="secondary-button settings-action" :loading="bindingWechat" @click="handleBindWechat">
-        {{ authStore.state.profile?.wechat_bound ? '重新绑定微信' : '立即绑定微信' }}
-      </button>
+    <SectionCard title="账号与安全" subtitle="账号绑定和密码管理放在同一组，后续扩展也更稳。">
+      <SettingsMenuItem
+        title="微信账号绑定"
+        :description="authStore.state.profile?.wechat_bound ? '当前微信已与账号绑定，可直接登录。' : '绑定后可直接用当前微信登录小程序。'"
+        :value="bindingWechat ? '处理中' : authStore.state.profile?.wechat_bound ? '已绑定' : '未绑定'"
+        clickable
+        arrow
+        @click="handleBindWechat"
+      />
+      <SettingsMenuItem
+        title="修改密码"
+        description="修改成功后会自动退出当前登录状态。"
+        value="编辑"
+        clickable
+        arrow
+        @click="togglePasswordEditor"
+      />
     </SectionCard>
 
-    <SectionCard title="报警消息订阅" subtitle="授权成功后，后端会持久化订阅状态，并按报警任务自动派发通知。">
-      <view class="settings-info__row settings-info__row--compact">
-        <text class="settings-info__label">授权状态</text>
-        <text class="settings-info__value">{{ subscriptionStore.state.enabled ? '已授权' : '未授权' }}</text>
-      </view>
-      <view class="settings-info__row settings-info__row--compact">
-        <text class="settings-info__label">模板编号</text>
-        <text class="settings-info__value">{{ templateIdText }}</text>
-      </view>
-      <view class="settings-info__row settings-info__row--compact">
-        <text class="settings-info__label">最近更新时间</text>
-        <text class="settings-info__value">{{ formatDateTime(subscriptionStore.state.updatedAt, '尚未授权') }}</text>
-      </view>
-      <button class="secondary-button settings-action" @click="handleSubscribe">申请授权</button>
-      <button
-        v-if="subscriptionStore.state.enabled"
-        class="danger-button settings-action"
-        @click="handleUnsubscribe"
-      >
-        停止订阅
-      </button>
+    <SectionCard title="消息通知" subtitle="通知能力独立归组，和账号安全分开维护。">
+      <SettingsMenuItem
+        title="报警消息订阅"
+        :description="subscriptionDescription"
+        :value="subscriptionStore.state.enabled ? '已授权' : '未授权'"
+        clickable
+        arrow
+        @click="handleSubscriptionEntry"
+      />
     </SectionCard>
 
-    <SectionCard title="修改密码" subtitle="修改成功后将自动退出并要求重新登录。">
+    <SectionCard v-if="passwordEditorVisible" title="修改密码" subtitle="修改完成后会自动退出，需要重新登录。">
       <view class="form-field">
         <text class="form-label">当前密码</text>
         <input v-model="passwordForm.currentPassword" class="form-input" password placeholder="请输入当前密码" />
@@ -60,8 +53,16 @@
       </button>
     </SectionCard>
 
-    <SectionCard title="退出登录" subtitle="退出后需要重新输入账号密码登录。">
-      <button class="danger-button settings-action" @click="handleLogout">安全退出</button>
+    <SectionCard title="会话管理" subtitle="敏感会话操作单独放在底部，降低误触概率。">
+      <SettingsMenuItem
+        title="安全退出"
+        description="退出后需要重新输入账号密码或重新使用微信登录。"
+        value="退出"
+        clickable
+        arrow
+        danger
+        @click="handleLogout"
+      />
     </SectionCard>
   </view>
 </template>
@@ -71,6 +72,7 @@ import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 
 import SectionCard from '@/components/SectionCard.vue'
+import SettingsMenuItem from '@/components/SettingsMenuItem.vue'
 import { wechatBindApi } from '@/api/auth'
 import { changePasswordApi } from '@/api/users'
 import { useAuthStore } from '@/stores/auth'
@@ -85,6 +87,7 @@ const subscriptionStore = useSubscriptionStore()
 
 const bindingWechat = ref(false)
 const submittingPassword = ref(false)
+const passwordEditorVisible = ref(false)
 const passwordForm = reactive({
   currentPassword: '',
   newPassword: '',
@@ -100,6 +103,18 @@ const templateIdText = computed(() => {
     return '尚未同步到模板编号'
   }
   return templateIds.join('、')
+})
+
+const subscriptionDescription = computed(() => {
+  if (subscriptionStore.state.enabled) {
+    return `已授权，最近更新时间 ${formatDateTime(subscriptionStore.state.updatedAt, '刚刚')}`
+  }
+
+  if (templateIdText.value === '尚未同步到模板编号') {
+    return '当前没有可用模板编号，请先由后端或管理员补充配置。'
+  }
+
+  return `当前可用模板：${templateIdText.value}`
 })
 
 onShow(() => {
@@ -123,6 +138,10 @@ async function handleBindWechat() {
     return
   }
 
+  if (bindingWechat.value) {
+    return
+  }
+
   bindingWechat.value = true
   try {
     const code = await requestWechatLoginCode()
@@ -137,6 +156,31 @@ async function handleBindWechat() {
   } finally {
     bindingWechat.value = false
   }
+}
+
+function togglePasswordEditor() {
+  passwordEditorVisible.value = !passwordEditorVisible.value
+}
+
+async function handleSubscriptionEntry() {
+  if (subscriptionStore.state.enabled) {
+    uni.showActionSheet({
+      itemList: ['重新申请授权', '停止订阅'],
+      success: async (result) => {
+        if (result.tapIndex === 0) {
+          await handleSubscribe()
+          return
+        }
+
+        if (result.tapIndex === 1) {
+          await handleUnsubscribe()
+        }
+      },
+    })
+    return
+  }
+
+  await handleSubscribe()
 }
 
 async function handleSubscribe() {
@@ -214,9 +258,19 @@ async function handleChangePassword() {
 }
 
 function handleLogout() {
-  authStore.logout(false)
-  uni.reLaunch({
-    url: '/pages/login/index',
+  uni.showModal({
+    title: '确认退出登录',
+    content: '退出后需要重新登录，是否继续？',
+    success: (result) => {
+      if (!result.confirm) {
+        return
+      }
+
+      authStore.logout(false)
+      uni.reLaunch({
+        url: '/pages/login/index',
+      })
+    },
   })
 }
 </script>
@@ -238,35 +292,5 @@ function handleLogout() {
 
 .settings-action {
   margin-top: 12rpx;
-}
-
-.settings-info__row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 20rpx;
-  padding: 18rpx 0;
-  border-top: 1rpx solid rgba(22, 83, 143, 0.08);
-}
-
-.settings-info__row:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.settings-info__row--compact {
-  gap: 12rpx;
-}
-
-.settings-info__label {
-  font-size: 24rpx;
-  color: #6f87a4;
-}
-
-.settings-info__value {
-  font-size: 24rpx;
-  line-height: 1.5;
-  color: #17324d;
-  font-weight: 600;
 }
 </style>

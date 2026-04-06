@@ -1,38 +1,38 @@
-﻿<template>
+<template>
   <view class="app-page app-page--docked">
-    <view class="hero-panel">
-      <text class="profile-name">{{ authStore.state.profile?.username || '--' }}</text>
-      <text class="profile-role">{{ formatRole(authStore.state.profile?.role) }}</text>
-      <text class="profile-desc">账号状态和消息授权保留在这里，安全设置进入独立设置页统一管理。</text>
-    </view>
+    <view class="hero-panel profile-hero">
+      <button class="profile-settings-trigger" @click="openSettings">
+        <text class="profile-settings-trigger__icon">⚙</text>
+      </button>
 
-    <SectionCard title="账号信息" subtitle="当前小程序仅面向普通设备账号提供业务能力。">
-      <view class="profile-info">
-        <view class="profile-info__row">
-          <text class="profile-info__label">用户 ID</text>
-          <text class="profile-info__value">{{ authStore.state.profile?.id || '--' }}</text>
-        </view>
-        <view class="profile-info__row">
-          <text class="profile-info__label">账号角色</text>
-          <text class="profile-info__value">{{ formatRole(authStore.state.profile?.role) }}</text>
-        </view>
-        <view class="profile-info__row">
-          <text class="profile-info__label">登录状态</text>
-          <text class="profile-info__value">{{ authStore.state.profile?.is_active ? '正常' : '已停用' }}</text>
-        </view>
-        <view class="profile-info__row">
-          <text class="profile-info__label">微信绑定</text>
-          <text class="profile-info__value">{{ authStore.state.profile?.wechat_bound ? '已绑定' : '未绑定' }}</text>
-        </view>
-        <view class="profile-info__row">
-          <text class="profile-info__label">实时连接</text>
-          <text class="profile-info__value">{{ realtimeLabel }}</text>
+      <view class="profile-hero__identity">
+        <view class="profile-avatar">{{ profileInitials }}</view>
+        <view class="profile-hero__copy">
+          <text class="profile-name">{{ authStore.state.profile?.username || '--' }}</text>
+          <text class="profile-role">{{ formatRole(authStore.state.profile?.role) }}</text>
         </view>
       </view>
+
+      <text class="profile-desc">常用账号信息放在这里，通知、安全和退出登录统一收口到设置页。</text>
+    </view>
+
+    <SectionCard title="账号概览" subtitle="保留高频信息，减少“我的”页里的操作噪音。">
+      <SettingsMenuItem title="用户 ID" :value="String(authStore.state.profile?.id || '--')" />
+      <SettingsMenuItem title="账号角色" :value="formatRole(authStore.state.profile?.role)" />
+      <SettingsMenuItem title="登录状态" :value="authStore.state.profile?.is_active ? '正常' : '已停用'" />
+      <SettingsMenuItem title="微信绑定" :value="authStore.state.profile?.wechat_bound ? '已绑定' : '未绑定'" />
+      <SettingsMenuItem title="实时连接" :value="realtimeLabel" />
     </SectionCard>
 
-    <SectionCard title="设置" subtitle="微信绑定、消息订阅、修改密码和退出登录已收纳到设置页，避免“我的”页过长。">
-      <button class="primary-button profile-action" @click="openSettings">进入设置</button>
+    <SectionCard title="快捷入口" subtitle="设置页集中处理账号安全、通知和会话管理。">
+      <SettingsMenuItem
+        title="打开设置"
+        description="进入设置页后可以管理微信绑定、报警订阅、修改密码和安全退出。"
+        value="进入"
+        clickable
+        arrow
+        @click="openSettings"
+      />
     </SectionCard>
 
     <PrimaryDock active="profile" />
@@ -45,6 +45,7 @@ import { onShow } from '@dcloudio/uni-app'
 
 import PrimaryDock from '@/components/PrimaryDock.vue'
 import SectionCard from '@/components/SectionCard.vue'
+import SettingsMenuItem from '@/components/SettingsMenuItem.vue'
 import { useRealtime } from '@/composables/useRealtime'
 import { useAuthStore } from '@/stores/auth'
 import { formatRole } from '@/utils/format'
@@ -52,6 +53,11 @@ import { ensureAuthenticated } from '@/utils/guards'
 
 const authStore = useAuthStore()
 const realtime = useRealtime()
+
+const profileInitials = computed(() => {
+  const username = String(authStore.state.profile?.username || '').trim()
+  return username ? username.slice(0, 2).toUpperCase() : 'ME'
+})
 
 const realtimeLabel = computed(() => {
   switch (realtime.state.status) {
@@ -78,6 +84,60 @@ function openSettings() {
 </script>
 
 <style scoped>
+.profile-hero {
+  position: relative;
+}
+
+.profile-settings-trigger {
+  position: absolute;
+  top: 18rpx;
+  right: 18rpx;
+  width: 76rpx;
+  min-height: 76rpx;
+  padding: 0;
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-settings-trigger::after {
+  border: 0;
+}
+
+.profile-settings-trigger__icon {
+  font-size: 34rpx;
+  line-height: 1;
+  color: #fff;
+}
+
+.profile-hero__identity {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  padding-right: 88rpx;
+}
+
+.profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 30rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+}
+
+.profile-hero__copy {
+  min-width: 0;
+  flex: 1;
+}
+
 .profile-name {
   display: block;
   font-size: 42rpx;
@@ -100,44 +160,5 @@ function openSettings() {
   font-size: 24rpx;
   line-height: 1.7;
   opacity: 0.92;
-}
-
-.profile-info {
-  display: grid;
-  gap: 18rpx;
-}
-
-.profile-info__row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 20rpx;
-  padding: 18rpx 0;
-  border-top: 1rpx solid rgba(22, 83, 143, 0.08);
-}
-
-.profile-info__row:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.profile-info__row--compact {
-  gap: 12rpx;
-}
-
-.profile-info__label {
-  font-size: 24rpx;
-  color: #6f87a4;
-}
-
-.profile-info__value {
-  font-size: 24rpx;
-  line-height: 1.5;
-  color: #17324d;
-  font-weight: 600;
-}
-
-.profile-action {
-  margin-top: 12rpx;
 }
 </style>
