@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     MQTT_USERNAME: str = ""
     MQTT_PASSWORD: str = ""
     MQTT_CLIENT_ID: str = "pal_4g_backend"
+    MQTT_TLS_ENABLED: bool = False
+    MQTT_TLS_CA_CERTS: str = ""
+    MQTT_TLS_CERTFILE: str = ""
+    MQTT_TLS_KEYFILE: str = ""
+    MQTT_TLS_INSECURE: bool = False
+    MQTT_TLS_SERVER_HOSTNAME: str = ""
     MQTT_STATUS_TOPIC: str = "pal4g/devices/+/status"
     MQTT_ALARM_TOPIC: str = "pal4g/devices/+/alarm"
     MQTT_FEEDBACK_TOPIC: str = "pal4g/devices/+/feedback"

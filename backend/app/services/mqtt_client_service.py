@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import ssl
 from datetime import datetime, timezone
 from typing import Any
 
@@ -67,6 +68,8 @@ class MqttClientService:
         )
         if settings.MQTT_USERNAME:
             client.username_pw_set(settings.MQTT_USERNAME, settings.MQTT_PASSWORD)
+        if settings.MQTT_TLS_ENABLED:
+            self._configure_tls(client)
 
         client.on_connect = self._on_connect
         client.on_disconnect = self._on_disconnect
@@ -107,6 +110,20 @@ class MqttClientService:
             logger.info("MQTT subscribed topics: %s", ",".join(self._subscribed_topics))
         else:
             logger.error("MQTT connect failed with rc=%s", rc)
+
+    def _configure_tls(self, client: mqtt_client.Client) -> None:
+        tls_version = ssl.PROTOCOL_TLS_CLIENT
+        tls_kwargs: dict[str, Any] = {"tls_version": tls_version}
+        if settings.MQTT_TLS_CA_CERTS:
+            tls_kwargs["ca_certs"] = settings.MQTT_TLS_CA_CERTS
+        if settings.MQTT_TLS_CERTFILE:
+            tls_kwargs["certfile"] = settings.MQTT_TLS_CERTFILE
+        if settings.MQTT_TLS_KEYFILE:
+            tls_kwargs["keyfile"] = settings.MQTT_TLS_KEYFILE
+
+        # 默认按单向 TLS 处理，后续如果现场需要双向证书，只要补 certfile/keyfile 即可。
+        client.tls_set(**tls_kwargs)
+        client.tls_insecure_set(settings.MQTT_TLS_INSECURE)
 
     def _on_disconnect(
         self,
