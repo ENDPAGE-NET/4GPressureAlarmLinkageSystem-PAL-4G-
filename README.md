@@ -1,63 +1,96 @@
 # PAL_4G
 
-## 端口说明
-
-当前项目本地联调默认使用以下端口：
-
-- 后端接口服务：`http://127.0.0.1:8001`
-- Web 前端开发服务：`http://127.0.0.1:5173`
-- 后端 Swagger：`http://127.0.0.1:8001/docs`
-
-说明：
-
-- 前端通过 `5173` 访问页面，并请求 `8001` 后端接口
-- 若需进行前后端联调，请先分别启动 `web` 与 `backend`
+4G 压力报警联动控制系统，当前仓库包含后端、Web 管理端和微信小程序三端代码。
 
 ## 项目结构
 
 ```text
 PAL_4G/
-├─ backend/        # 后端服务，基于 FastAPI
-├─ web/            # Web 管理端，基于 Vue 3 + Vite
-├─ miniprogram/    # 小程序端（UniApp）
-└─ docs/           # 项目文档
+├─ backend/        # 后端服务，FastAPI
+├─ web/            # Web 管理端，Vue 3 + Vite
+├─ miniprogram/    # 微信小程序端，UniApp + Vue 3
+└─ docs/           # 项目文档与联调资料
 ```
 
-## 当前实现范围
+## 本地端口
 
-本 README 以当前代码状态为准，包含后端、Web 与小程序三端的实现现状。
+- 后端接口服务：`http://127.0.0.1:8001`
+- 后端 Swagger：`http://127.0.0.1:8001/docs`
+- Web 前端开发服务：`http://127.0.0.1:5173`
 
-## 需求实现对比
+## 当前完成情况
 
-下表按需求文档中的主要能力进行对照，统一展示后端、Web、小程序当前状态。
+### 后端
 
-| 需求项 | 后端 | Web | 小程序 |
-| --- | --- | --- | --- |
-| 账号登录与权限区分 | 已完成。支持 `super_admin`、`manager`、`device_user`，包含登录、当前用户、改密、重置密码、安全删除用户 | 已完成。登录页、权限路由、用户信息展示已接通 | 已完成。支持账号密码登录、当前用户获取、登录态恢复、401 失效退出、微信登录与补绑定 |
-| 设备管理 | 已完成。支持设备创建、查询、分页、分配负责人、解绑、删除；一个设备一个业务 SN | 已完成。支持设备列表、设备详情、设备控制、状态展示 | 已完成。支持设备列表、按 SN 绑定、移除设备、设备详情与多模块状态查看 |
-| 管理者只管理自己名下设备 | 已完成。按 `owner_id` 做数据隔离与权限校验 | 已完成。页面与路由已按角色控制访问 | 已完成。小程序仅面向普通设备账号，不承载管理员菜单 |
-| 报警记录查询 | 已完成。支持查询、筛选、分页、恢复 | 已完成。报警列表页、分页跳页、中文文案已接通 | 已完成。支持关键词、报警类型、起止日期筛选与分页加载 |
-| 报警联动断开 | 已完成。任一设备报警后，可按同一管理者名下整套设备生成联动断开指令 | 已完成基础展示。可查看报警、指令和联动结果 | 已完成基础展示。首页、设备详情、报警页可查看报警与最近指令结果 |
-| 手动控制设备 | 已完成。支持手动继电器指令、执行反馈、补发 | 已完成。设备详情页可执行控制操作 | 已完成。设备详情页支持按模块下发继电器开/关指令 |
-| 实时状态展示 | 已完成。支持 WebSocket 事件推送、状态上报、反馈回写 | 已完成。支持实时状态提示与联动展示 | 已完成。首页、设备页、详情页接入 WebSocket，并保留轮询兜底 |
-| 设备通信接入 | 已完成基础能力。包含 MQTT 骨架、协议模板管理、状态上报、通信日志；真实设备协议联调仍需最终确认 | 不涉及 | 不涉及 |
-| 状态历史与日志 | 已完成。支持设备状态历史、运行日志、操作日志、通信日志 | 已完成。日志中心、运维页面、导出中心已接通 | 未完成 |
-| 仪表盘总览 | 已完成。提供聚合接口、统计接口、分页接口 | 已完成。总览卡片、报警分布、指令状态分布、设备状态分布已接通，图表使用 ECharts | 未完成 |
-| 分页与跳页 | 已完成。核心列表接口已支持分页 | 已完成。设备、报警、日志等页面支持分页和直接跳页 | 未完成 |
-| 运维与调度 | 已完成。支持 APScheduler、离线检测、补发扫描、自动恢复检查、备份与清理 | 已完成。运维页面和调度页面已接通 | 未完成 |
-| 中文化提示与交付态文案 | 不涉及前端展示 | 已完成。登录页、顶部状态卡片、错误提示、主要业务文案已改为交付态表达 | 未完成 |
-| 自动化测试 | 已完成。`pytest` 已接入，微信相关接口用例可通过 | 已完成。`Vitest` 与 `Playwright` 已接入 | 未完成。当前以微信开发者工具联调与真机测试为主，尚未接入小程序专用自动化测试框架 |
+- 已完成账号登录、鉴权、设备管理、报警记录、继电器控制、联动断开、WebSocket 实时事件。
+- 已具备 MQTT 接入基础能力、协议模板管理、状态上报处理、报警处理、反馈回写。
+- 已具备微信登录、微信绑定、订阅状态、订阅开关、报警通知派发相关接口。
+- 已接入 `pytest`，现有后端和微信相关接口可做自动化验证。
 
-补充说明：
+### Web
 
-- 当前后端、Web 与小程序首期主流程均已具备联调基础。
-- 小程序已完成首期主要业务页面和后端接口对接，但仍缺真机专项回归与自动化测试体系。
-- 真实设备协议、有人云 / WH-GM5 实际联调仍需在最终交付前确认闭环。
+- 已完成登录、总览、设备列表、设备详情、报警列表、日志中心、运维与调度等主要页面。
+- 已与后端主接口完成对接，支持分页、筛选、图表展示和联动结果查看。
+- 已接入 `Vitest` 与 `Playwright`。
 
-## 技术栈
+### 小程序
 
-- 后端：FastAPI、SQLAlchemy、Pydantic、APScheduler、MQTT
-- Web：Vue 3、Vite、TypeScript、Pinia、Vue Router、Element Plus、ECharts
+当前小程序不再是骨架工程，首期主链路已经落地，并已对接后端真实接口。
+
+已完成页面：
+
+- 登录页
+- 首页
+- 我的设备页
+- 设备详情页
+- 设备绑定页
+- 报警页
+- 我的页
+- 设置页
+
+已完成能力：
+
+- 账号密码登录、登录态恢复、401 失效退出
+- 微信登录入口、微信绑定入口
+- 首页摘要、最近报警、设备快捷入口
+- 我的设备列表、本地搜索、进入详情
+- 设备详情与多模块状态展示
+- 按模块远程控制继电器开关
+- SN 绑定设备、移除设备
+- 报警分页、关键词/类型/日期筛选
+- 修改密码、退出登录
+- WebSocket 实时更新 + 轮询兜底
+- 订阅状态查询、订阅/退订入口
+
+当前仍未完成或仍需联调验收的部分：
+
+- 小程序专用自动化测试体系尚未正式接入
+- 微信真实 `AppID/AppSecret`、订阅模板和真机授权链路仍需最终验收
+- 真机网络联调依赖 HTTPS 隧道或正式可访问域名
+- 真实硬件设备 MQTT 接入仍需结合 Broker、现场参数和真实报文验证闭环
+
+## 小程序当前对接接口
+
+小程序当前已接入以下后端接口：
+
+- `POST /api/v1/auth/login`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/wechat-login`
+- `POST /api/v1/auth/wechat-bind`
+- `GET /api/v1/dashboard/my/home`
+- `GET /api/v1/dashboard/my/devices`
+- `GET /api/v1/dashboard/my/alarms`
+- `GET /api/v1/dashboard/alarms/page`
+- `GET /api/v1/devices/{device_id}`
+- `GET /api/v1/dashboard/devices/{device_id}`
+- `POST /api/v1/relay-commands`
+- `POST /api/v1/devices/bind`
+- `POST /api/v1/devices/{device_id}/unbind`
+- `POST /api/v1/users/me/change-password`
+- `GET /api/v1/notifications/subscription-status`
+- `POST /api/v1/notifications/subscribe`
+- `POST /api/v1/notifications/unsubscribe`
+- `GET /api/v1/ws/events`
 
 ## 启动说明
 
@@ -68,11 +101,35 @@ cd D:\project\code\PAL_4G\backend
 D:\uv\venvs\pal_4g\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
-### 后端环境变量
+如果要做小程序真机调试，建议改为：
 
-后端配置文件位于 `backend/.env`。如需接真实 MQTT 或微信小程序能力，请至少补齐以下配置。
+```powershell
+cd D:\project\code\PAL_4G\backend
+D:\uv\venvs\pal_4g\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8001
+```
 
-MQTT 配置：
+### 启动 Web
+
+```powershell
+cd D:\project\code\PAL_4G\web
+npm.cmd install
+npm.cmd run dev
+```
+
+### 启动小程序开发
+
+```powershell
+cd D:\project\code\PAL_4G\miniprogram
+npm.cmd install
+```
+
+然后使用 HBuilderX 或 UniApp CLI 编译到微信小程序，再在微信开发者工具中打开编译产物。
+
+## 环境变量
+
+后端配置文件位于 `backend/.env`。如需接入真实 MQTT 或微信能力，至少补齐以下配置。
+
+### MQTT
 
 ```env
 MQTT_ENABLED=true
@@ -81,12 +138,9 @@ MQTT_BROKER_PORT=1883
 MQTT_USERNAME=你的MQTT用户名
 MQTT_PASSWORD=你的MQTT密码
 MQTT_CLIENT_ID=pal_4g_backend
-MQTT_STATUS_TOPIC=pal_4g/status/#
-MQTT_FEEDBACK_TOPIC=pal_4g/feedback/#
-MQTT_COMMAND_TOPIC_PREFIX=pal_4g/commands
 ```
 
-微信小程序配置：
+### 微信小程序
 
 ```env
 WECHAT_ENABLED=true
@@ -102,38 +156,6 @@ WECHAT_SUBSCRIBE_FIELD_DEVICE_NAME=thing2
 WECHAT_SUBSCRIBE_FIELD_TRIGGER_TIME=time3
 WECHAT_SUBSCRIBE_FIELD_REMARK=thing4
 ALARM_NOTIFICATION_DISPATCH_INTERVAL_SECONDS=60
-```
-
-你需要提供的微信信息：
-
-- 小程序 `AppID`
-- 小程序 `AppSecret`
-- 订阅消息模板 ID
-- 模板字段 key 名
-- 消息点击后跳转的小程序页面路径
-
-说明：
-
-- `POST /api/v1/auth/wechat-login` 在开启 `WECHAT_LOGIN_USE_REAL_CODE2SESSION=true` 后，会由后端调用微信 `code2Session`
-- `POST /api/v1/auth/wechat-bind` 同时支持真实 `code` 和开发阶段直传 `wechat_open_id`
-- `GET /api/v1/notifications/subscription-status`
-- `POST /api/v1/notifications/subscribe`
-- `POST /api/v1/notifications/unsubscribe`
-- `POST /api/v1/jobs/alarm-notification-dispatch` 可手动触发一次报警订阅消息派发
-
-报警订阅消息派发规则：
-
-- 新报警创建后会进入待发送状态
-- APScheduler 会按 `ALARM_NOTIFICATION_DISPATCH_INTERVAL_SECONDS` 周期扫描待发送报警
-- 只有设备归属用户已绑定微信、用户已开启订阅、系统已配置模板 ID 时才会真正发送
-- 派发结果会记录到报警通知状态字段和通信日志中
-
-### 启动 Web
-
-```powershell
-cd D:\project\code\PAL_4G\web
-npm.cmd install
-npm.cmd run dev
 ```
 
 ## 测试说明
@@ -159,8 +181,19 @@ cd D:\project\code\PAL_4G\web
 npm.cmd run test:e2e
 ```
 
-## 相关文档
+### 小程序测试建议
 
-- [需求文档](./docs/4G%20%E5%8E%8B%E5%8A%9B%E6%8A%A5%E8%AD%A6%E6%A8%A1%E5%9D%97%20%C2%B7%20%E8%BD%AF%E4%BB%B6%E9%9C%80%E6%B1%82%E6%B2%9F%E9%80%9A%E6%96%87%E6%A1%A3.md)
-- [后端开发进度文档](./docs/%E5%90%8E%E7%AB%AF%E5%BC%80%E5%8F%91%E8%BF%9B%E5%BA%A6%E6%96%87%E6%A1%A3.md)
-- [Web与后端测试结果报告](./docs/Web%E4%B8%8E%E5%90%8E%E7%AB%AF%E6%B5%8B%E8%AF%95%E7%BB%93%E6%9E%9C%E6%8A%A5%E5%91%8A.md)
+- 接口与服务逻辑：继续使用后端 `pytest`
+- 小程序页面与交互：微信开发者工具联调
+- 真机能力：真机预览 / 真机调试
+- 若后续补自动化：优先考虑 `miniprogram-automator` 或 `uni-automator`
+
+## 真机调试说明
+
+小程序真机调试不要直接依赖 `127.0.0.1`。如果电脑和手机局域网互通不稳定，建议使用 HTTPS 隧道方案，例如 `cloudflared`，再把小程序接口地址切到临时 HTTPS 域名。
+
+相关经验文档见：
+
+- [微信小程序开发文档](./docs/%E5%BE%AE%E4%BF%A1%E5%B0%8F%E7%A8%8B%E5%BA%8F%E5%BC%80%E5%8F%91%E6%96%87%E6%A1%A3.md)
+- [小程序需求实现验收清单](./docs/%E5%B0%8F%E7%A8%8B%E5%BA%8F%E9%9C%80%E6%B1%82%E5%AE%9E%E7%8E%B0%E9%AA%8C%E6%94%B6%E6%B8%85%E5%8D%95.md)
+- [真机接入资料清单（硬件直接对接网站）](./docs/%E7%9C%9F%E6%9C%BA%E6%8E%A5%E5%85%A5%E8%B5%84%E6%96%99%E6%B8%85%E5%8D%95%EF%BC%88%E7%A1%AC%E4%BB%B6%E7%9B%B4%E6%8E%A5%E5%AF%B9%E6%8E%A5%E7%BD%91%E7%AB%99%EF%BC%89.md)
