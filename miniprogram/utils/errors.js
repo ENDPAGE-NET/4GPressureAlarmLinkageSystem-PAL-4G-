@@ -1,4 +1,4 @@
-﻿const MESSAGE_MAP = {
+const MESSAGE_MAP = {
   'Incorrect username or password': '账号或密码错误',
   'User is inactive': '当前账号已停用，请联系管理员',
   'WeChat account is not bound to any user': '当前微信尚未绑定设备账号',

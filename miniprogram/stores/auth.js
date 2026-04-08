@@ -1,4 +1,4 @@
-﻿import { computed, reactive, readonly } from 'vue'
+import { computed, reactive, readonly } from 'vue'
 
 import { getCurrentUserApi, loginApi, wechatLoginApi } from '@/api/auth'
 import {

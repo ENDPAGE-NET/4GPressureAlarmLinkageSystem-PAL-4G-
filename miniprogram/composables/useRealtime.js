@@ -1,4 +1,4 @@
-﻿import { reactive, readonly } from 'vue'
+import { reactive, readonly } from 'vue'
 
 import { useAuthStore } from '@/stores/auth'
 import { APP_CONFIG, getWsUrl } from '@/utils/config'

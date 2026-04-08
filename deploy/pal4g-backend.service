@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
-WorkingDirectory=/opt/pal4g/backend
-EnvironmentFile=/opt/pal4g/backend/.env
-ExecStart=/opt/pal4g/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+User=www
+Group=www
+WorkingDirectory=/www/wwwroot/pal4g/backend
+EnvironmentFile=/www/wwwroot/pal4g/backend/.env
+ExecStart=/www/wwwroot/pal4g/backend/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
 Restart=always
 RestartSec=5
 

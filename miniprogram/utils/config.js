@@ -4,7 +4,8 @@ import {
   setServiceOrigin as setStoredServiceOrigin,
 } from '@/utils/storage'
 
-const DEFAULT_SERVICE_ORIGIN = 'https://proceedings-explicit-caused-traveller.trycloudflare.com'
+// 生产环境请替换为实际部署地址，如 https://usr-iot.endpage.net
+const DEFAULT_SERVICE_ORIGIN = 'https://usr-iot.endpage.net'
 
 function normalizeServiceOrigin(origin) {
   const raw = String(origin || '').trim()
