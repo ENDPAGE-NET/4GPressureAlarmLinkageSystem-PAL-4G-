@@ -57,21 +57,24 @@
             <el-table-column :label="t('devices.table.latestAlarmTime')" min-width="180">
               <template #default="{ row }">{{ formatDateTime(row.latest_alarm_time) }}</template>
             </el-table-column>
-            <el-table-column :label="t('common.actions')" min-width="260">
+            <el-table-column :label="t('common.actions')" min-width="320">
               <template #default="{ row }">
                 <el-button type="primary" link :icon="View" @click="router.push(`/devices/${row.device_id}`)">
                   {{ t('common.details') }}
                 </el-button>
+                <el-button v-if="canManageDevices" link :icon="Connection" @click="showMqttConfig(row.device_id)">
+                  配置
+                </el-button>
                 <el-button v-if="canManageDevices" link :icon="EditPen" @click="openEditDialog(row)">
                   {{ t('common.edit') }}
                 </el-button>
-                <el-button v-if="isAdmin" link type="danger" :icon="Delete" @click="handleDeleteDevice(row)">
+                <el-button v-if="canManageDevices" link type="danger" :icon="Delete" @click="handleDeleteDevice(row)">
                   {{ t('common.delete') }}
                 </el-button>
                 <el-button v-if="isAdmin" link type="warning" :icon="User" @click="openOwnerDialog(row)">
                   {{ t('devices.assignOwner') }}
                 </el-button>
-                <el-button v-else link type="danger" :icon="CloseBold" @click="handleUnbind(row.device_id)">
+                <el-button v-if="!isAdmin" link type="danger" :icon="CloseBold" @click="handleUnbind(row.device_id)">
                   {{ t('devices.unbind') }}
                 </el-button>
               </template>
@@ -183,7 +186,7 @@
 </template>
 
 <script setup lang="ts">
-import { CloseBold, Delete, EditPen, Link, Plus, RefreshRight, User, View } from '@element-plus/icons-vue'
+import { CloseBold, Connection, Delete, EditPen, Link, Plus, RefreshRight, User, View } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
@@ -443,11 +446,16 @@ async function submitBind() {
   }
 }
 
-async function handleDeleteDevice(row: DeviceRow) {
-  if (!isAdmin.value) {
-    ElMessage.error(t('auth.forbidden'))
-    return
+async function showMqttConfig(deviceId: number) {
+  try {
+    lastCreatedMqttConfig.value = await getDeviceMqttConfigApi(deviceId)
+    mqttConfigVisible.value = true
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.detail || 'MQTT 配置获取失败')
   }
+}
+
+async function handleDeleteDevice(row: DeviceRow) {
   try {
     await ElMessageBox.confirm(t('devices.deleteConfirm'), t('devices.deleteTitle'), {
       type: 'warning',

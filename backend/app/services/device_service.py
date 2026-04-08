@@ -59,8 +59,8 @@ def _generate_mqtt_credentials(serial_number: str, payload_username: str | None 
 def build_device_mqtt_config(device: Device) -> DeviceMqttConfig:
     """从已保存的设备信息构建 MQTT 接入配置卡片，供管理员抄录到实体设备。"""
     return DeviceMqttConfig(
-        broker_host=settings.MQTT_BROKER_HOST,
-        broker_port=settings.MQTT_BROKER_PORT,
+        broker_host="usr-iot-backend.endpage.net",
+        broker_port=1883,
         mqtt_username=device.mqtt_username or device.serial_number,
         mqtt_password=device.mqtt_password or "",
         mqtt_client_id=device.mqtt_client_id or device.serial_number,
@@ -451,47 +451,21 @@ async def delete_device(
     db: AsyncSession,
     device: Device,
 ) -> None:
-    module_count = (
-        await db.execute(select(func.count(Module.id)).where(Module.device_id == device.id))
-    ).scalar_one()
-
-    # 设备只有在完全空载时才允许删除，避免把模块历史一起带丢。
-    if module_count:
-        raise ValueError("Device still has modules and cannot be deleted")
-
-    await db.execute(delete(Device).where(Device.id == device.id))
-    await db.commit()
-
-
-async def delete_device(
-    db: AsyncSession,
-    device: Device,
-) -> None:
-    # 覆盖旧实现：当前业务允许删除仅带一个默认兼容模块、且没有历史记录的设备。
+    """删除设备及其所有关联数据（模块、报警、指令）。"""
     modules = list(
         (
             await db.execute(
-                select(Module).where(Module.device_id == device.id).order_by(Module.id.asc())
+                select(Module).where(Module.device_id == device.id)
             )
         ).scalars().all()
     )
-    if len(modules) > 1:
-        raise ValueError("Device still has multiple modules and cannot be deleted")
 
-    if len(modules) == 1:
-        module = modules[0]
-        alarm_count = (
-            await db.execute(
-                select(func.count(AlarmRecord.id)).where(AlarmRecord.module_id == module.id)
-            )
-        ).scalar_one()
-        command_count = (
-            await db.execute(
-                select(func.count(RelayCommand.id)).where(RelayCommand.module_id == module.id)
-            )
-        ).scalar_one()
-        if alarm_count or command_count:
-            raise ValueError("Device still has module history and cannot be deleted")
+    for module in modules:
+        await db.execute(delete(RelayCommand).where(RelayCommand.module_id == module.id))
+        await db.execute(delete(AlarmRecord).where(AlarmRecord.module_id == module.id))
+        await db.execute(
+            delete(ModuleStatusHistory).where(ModuleStatusHistory.module_id == module.id)
+        )
         await db.execute(delete(Module).where(Module.id == module.id))
 
     await db.execute(delete(Device).where(Device.id == device.id))

@@ -3,26 +3,11 @@ import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.job_execution_log import JobExecutionLog
-from app.schemas.maintenance import (
-    CleanupResult,
-    DatabaseBackupFileRead,
-    DatabaseBackupResult,
-)
-
-
-def _resolve_sqlite_db_path() -> Path:
-    database_url = settings.DATABASE_URL
-    prefix = "sqlite+aiosqlite:///"
-    if not database_url.startswith(prefix):
-        raise ValueError("Database backup currently only supports sqlite+aiosqlite")
-
-    raw_path = database_url.removeprefix(prefix)
-    return Path(raw_path).resolve()
+from app.schemas.maintenance import CleanupResult
 
 
 async def write_job_execution_log(
@@ -48,66 +33,6 @@ async def write_job_execution_log(
     await db.commit()
     await db.refresh(log)
     return log
-
-
-async def list_job_execution_logs(
-    db: AsyncSession,
-    job_name: str | None = None,
-    trigger_type: str | None = None,
-    status: str | None = None,
-    limit: int = 20,
-) -> list[JobExecutionLog]:
-    stmt = select(JobExecutionLog).order_by(
-        JobExecutionLog.created_at.desc(), JobExecutionLog.id.desc()
-    )
-    if job_name:
-        stmt = stmt.where(JobExecutionLog.job_name == job_name)
-    if trigger_type:
-        stmt = stmt.where(JobExecutionLog.trigger_type == trigger_type)
-    if status:
-        stmt = stmt.where(JobExecutionLog.status == status)
-    stmt = stmt.limit(limit)
-    return list((await db.execute(stmt)).scalars().all())
-
-
-async def backup_database() -> DatabaseBackupResult:
-    source_path = _resolve_sqlite_db_path()
-    if not source_path.exists():
-        raise ValueError("Database file does not exist")
-
-    today = datetime.now().strftime("%Y-%m-%d")
-    backup_dir = settings.backup_root_path / today
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    backup_path = backup_dir / f"{source_path.stem}-{datetime.now().strftime('%H%M%S')}.db"
-
-    # 当前先按文件复制实现 sqlite 备份，满足本地恢复与归档场景。
-    shutil.copy2(source_path, backup_path)
-    return DatabaseBackupResult(
-        backup_file=str(backup_path),
-        file_size=backup_path.stat().st_size,
-    )
-
-
-async def list_database_backups(limit: int = 20) -> list[DatabaseBackupFileRead]:
-    root_path = settings.backup_root_path
-    if not root_path.exists():
-        return []
-
-    backup_files: list[DatabaseBackupFileRead] = []
-
-    # 备份清单用于运维确认“哪些备份真实存在”，按文件时间倒序返回。
-    for file_path in root_path.rglob("*.db"):
-        stat = file_path.stat()
-        backup_files.append(
-            DatabaseBackupFileRead(
-                backup_file=str(file_path),
-                file_size=stat.st_size,
-                created_at=datetime.fromtimestamp(stat.st_mtime),
-            )
-        )
-
-    backup_files.sort(key=lambda item: item.created_at, reverse=True)
-    return backup_files[:limit]
 
 
 def _cleanup_dated_directories(root_path: Path, retention_days: int) -> int:

@@ -10,6 +10,10 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "sqlite+aiosqlite:///./pal_4g.db"
 
+    # 跨域：前后端分域部署时填入前端域名，多个用逗号分隔
+    # 例如: https://usr-iot.endpage.net,http://localhost:5174
+    CORS_ORIGINS: list[str] = ["*"]
+
     SECRET_KEY: str = "change-me-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
     ALGORITHM: str = "HS256"
