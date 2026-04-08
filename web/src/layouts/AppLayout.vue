@@ -156,7 +156,7 @@ const navigationRoutes = computed(() => {
 })
 
 const navSections = computed(() =>
-  ['business', 'admin', 'ops']
+  ['business', 'admin']
     .map((section) => ({
       key: section,
       titleKey: `nav.${section}`,

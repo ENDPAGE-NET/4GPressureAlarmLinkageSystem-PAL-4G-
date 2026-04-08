@@ -15,7 +15,7 @@ declare module 'vue-router' {
     navLabelKey?: string
     navIcon?: string
     navOrder?: number
-    navSection?: 'business' | 'admin' | 'ops'
+    navSection?: 'business' | 'admin'
     adminOnly?: boolean
   }
 }
@@ -101,76 +101,6 @@ const router = createRouter({
             navIcon: 'User',
             navOrder: 11,
             navSection: 'admin',
-            requiresAuth: true,
-            adminOnly: true,
-          },
-        },
-        {
-          path: '/admin/logs',
-          name: 'logs',
-          component: () => import('@/views/LogsCenterView.vue'),
-          meta: {
-            titleKey: 'logs.title',
-            navLabelKey: 'nav.logs',
-            navIcon: 'Tickets',
-            navOrder: 12,
-            navSection: 'admin',
-            requiresAuth: true,
-            adminOnly: true,
-          },
-        },
-        {
-          path: '/admin/exports',
-          name: 'exports',
-          component: () => import('@/views/ExportCenterView.vue'),
-          meta: {
-            titleKey: 'exports.title',
-            navLabelKey: 'nav.exports',
-            navIcon: 'Download',
-            navOrder: 13,
-            navSection: 'admin',
-            requiresAuth: true,
-            adminOnly: true,
-          },
-        },
-        {
-          path: '/ops',
-          name: 'operations',
-          component: () => import('@/views/OperationsOverviewView.vue'),
-          meta: {
-            titleKey: 'operations.title',
-            navLabelKey: 'nav.operations',
-            navIcon: 'DataAnalysis',
-            navOrder: 21,
-            navSection: 'ops',
-            requiresAuth: true,
-            adminOnly: true,
-          },
-        },
-        {
-          path: '/ops/scheduler',
-          name: 'scheduler',
-          component: () => import('@/views/SchedulerView.vue'),
-          meta: {
-            titleKey: 'scheduler.title',
-            navLabelKey: 'nav.scheduler',
-            navIcon: 'Clock',
-            navOrder: 22,
-            navSection: 'ops',
-            requiresAuth: true,
-            adminOnly: true,
-          },
-        },
-        {
-          path: '/ops/mqtt',
-          name: 'mqtt',
-          component: () => import('@/views/MqttStatusView.vue'),
-          meta: {
-            titleKey: 'mqtt.title',
-            navLabelKey: 'nav.mqtt',
-            navIcon: 'Connection',
-            navOrder: 23,
-            navSection: 'ops',
             requiresAuth: true,
             adminOnly: true,
           },
