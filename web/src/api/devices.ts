@@ -7,6 +7,7 @@ import type {
   DeviceGroupRead,
   DeviceGroupUpdatePayload,
   DeviceMonitoringItem,
+  DeviceMqttConfig,
   DeviceRead,
   DeviceUpdatePayload,
   ModuleCreatePayload,
@@ -100,5 +101,10 @@ export async function createDeviceModuleApi(deviceId: number, payload: ModuleCre
 
 export async function deleteDeviceModuleApi(moduleId: number) {
   const { data } = await http.delete<ModuleDeleteResult>(`/devices/modules/${moduleId}`)
+  return data
+}
+
+export async function getDeviceMqttConfigApi(deviceId: number) {
+  const { data } = await http.get<DeviceMqttConfig>(`/devices/${deviceId}/mqtt-config`)
   return data
 }

@@ -26,3 +26,18 @@ class MqttPublishResult(BaseModel):
     payload: dict
     published: bool
     reason: str
+
+
+class EmqxAuthRequest(BaseModel):
+    """EMQX HTTP Auth Plugin 发来的认证请求。"""
+    username: str
+    password: str
+    clientid: str | None = None
+
+
+class EmqxAclRequest(BaseModel):
+    """EMQX HTTP Auth Plugin 发来的 ACL 鉴权请求。"""
+    username: str
+    clientid: str | None = None
+    topic: str
+    action: str  # "publish" or "subscribe"

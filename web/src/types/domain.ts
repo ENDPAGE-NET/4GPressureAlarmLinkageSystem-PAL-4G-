@@ -46,19 +46,39 @@ export interface DeviceRead {
   status: string
   owner_id: number | null
   linkage_group_id: number | null
+  mqtt_username: string | null
+  mqtt_password: string | null
+  mqtt_client_id: string | null
+  mqtt_pub_topic: string | null
+  mqtt_sub_topic: string | null
   created_at: string
   updated_at: string
   modules: DeviceRuntimeRead[]
 }
 
+export interface DeviceMqttConfig {
+  broker_host: string
+  broker_port: number
+  mqtt_username: string
+  mqtt_password: string
+  mqtt_client_id: string
+  mqtt_pub_topic: string
+  mqtt_sub_topic: string
+  tls_enabled: boolean
+}
+
 export interface DeviceBindPayload {
   serial_number: string
   name?: string | null
+  mqtt_username?: string | null
+  mqtt_password?: string | null
 }
 
 export interface DeviceCreatePayload {
   name: string
   serial_number: string
+  mqtt_username?: string | null
+  mqtt_password?: string | null
 }
 
 export interface DeviceUpdatePayload {

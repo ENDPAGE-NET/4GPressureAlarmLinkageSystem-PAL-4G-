@@ -18,6 +18,7 @@ from app.schemas.device import (
     DeviceMonitoringPage,
     DeviceGroupUpdate,
     DeviceMonitoringItem,
+    DeviceMqttConfig,
     DeviceOverview,
     DevicePage,
     DeviceRead,
@@ -36,6 +37,7 @@ from app.services.device_service import (
     assign_device_group,
     bind_device_by_serial,
     build_device_group_read,
+    build_device_mqtt_config,
     create_device,
     create_device_group,
     delete_device,
@@ -280,6 +282,21 @@ async def read_devices_page(
         limit=page.limit,
         offset=page.offset,
     )
+
+
+@router.get("/{device_id}/mqtt-config", response_model=DeviceMqttConfig)
+async def read_device_mqtt_config(
+    device_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DeviceMqttConfig:
+    """返回设备的 MQTT 接入配置信息，供管理员抄录到实体硬件。"""
+    device = await get_device_by_id(db, device_id)
+    if not device:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
+    if current_user.role != "super_admin" and device.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    return build_device_mqtt_config(device)
 
 
 @router.get("/modules/{module_id}", response_model=ModuleDetail)

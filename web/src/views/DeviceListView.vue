@@ -130,6 +130,42 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="mqttConfigVisible" title="MQTT 接入配置" width="560px">
+      <el-alert
+        title="请将以下配置信息提供给客户，用于 4G CAT1 setup 软件中配置设备的 MQTT 连接参数。"
+        type="success"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 16px"
+      />
+      <div v-if="lastCreatedMqttConfig" class="mqtt-config-card">
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="MQTT 服务器">{{ lastCreatedMqttConfig.broker_host }}</el-descriptions-item>
+          <el-descriptions-item label="端口">{{ lastCreatedMqttConfig.broker_port }}</el-descriptions-item>
+          <el-descriptions-item label="TLS 加密">{{ lastCreatedMqttConfig.tls_enabled ? '是' : '否' }}</el-descriptions-item>
+          <el-descriptions-item label="用户名">
+            <span class="mono">{{ lastCreatedMqttConfig.mqtt_username }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="密码">
+            <span class="mono">{{ lastCreatedMqttConfig.mqtt_password }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="客户端 ID">
+            <span class="mono">{{ lastCreatedMqttConfig.mqtt_client_id }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="发布 Topic（设备上行）">
+            <span class="mono">{{ lastCreatedMqttConfig.mqtt_pub_topic }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="订阅 Topic（设备下行）">
+            <span class="mono">{{ lastCreatedMqttConfig.mqtt_sub_topic }}</span>
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+      <template #footer>
+        <el-button @click="copyMqttConfig">复制配置</el-button>
+        <el-button type="primary" @click="mqttConfigVisible = false">确定</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="ownerDialogVisible" :title="t('devices.assignOwner')" width="420px">
       <el-form label-position="top">
         <el-form-item :label="t('devices.owner')">
@@ -158,6 +194,7 @@ import {
   bindDeviceApi,
   createDeviceApi,
   deleteDeviceApi,
+  getDeviceMqttConfigApi,
   getDeviceMonitoringApi,
   getDevicesApi,
   unbindDeviceApi,
@@ -170,7 +207,7 @@ import StatusPill from '@/components/StatusPill.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useRealtime } from '@/composables/useRealtime'
 import { useAuthStore } from '@/stores/auth'
-import type { DeviceMonitoringItem, DeviceRead, RealtimeEventMessage, UserRead } from '@/types/domain'
+import type { DeviceMonitoringItem, DeviceMqttConfig, DeviceRead, RealtimeEventMessage, UserRead } from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 import { resolveAlarmTypeLabel } from '@/utils/labels'
 import { deviceStatusMeta } from '@/utils/status'
@@ -192,6 +229,8 @@ const currentDeviceId = ref<number | null>(null)
 const ownerDialogVisible = ref(false)
 const bindDialogVisible = ref(false)
 const deviceDialogVisible = ref(false)
+const mqttConfigVisible = ref(false)
+const lastCreatedMqttConfig = ref<DeviceMqttConfig | null>(null)
 const deviceDialogMode = ref<'create' | 'edit'>('create')
 const deviceFormRef = ref<FormInstance>()
 const submitting = ref(false)
@@ -334,11 +373,16 @@ async function submitDevice() {
   submitting.value = true
   try {
     if (deviceDialogMode.value === 'create') {
-      await createDeviceApi({
+      const createdDevice = await createDeviceApi({
         name: deviceForm.name.trim(),
         serial_number: deviceForm.serial_number.trim(),
       })
       ElMessage.success(t('devices.createSuccess'))
+      // 创建成功后拉取 MQTT 配置并展示给管理员
+      try {
+        lastCreatedMqttConfig.value = await getDeviceMqttConfigApi(createdDevice.id)
+        mqttConfigVisible.value = true
+      } catch { /* 不影响主流程 */ }
     } else if (currentDeviceId.value) {
       await updateDeviceApi(currentDeviceId.value, {
         name: deviceForm.name.trim(),
@@ -429,6 +473,26 @@ async function handleUnbind(deviceId: number) {
     if (err === 'cancel' || err?.message === 'cancel') return
     ElMessage.error(err.response?.data?.detail || t('devices.unbindError'))
   }
+}
+
+function copyMqttConfig() {
+  if (!lastCreatedMqttConfig.value) return
+  const c = lastCreatedMqttConfig.value
+  const text = [
+    `MQTT 服务器: ${c.broker_host}`,
+    `端口: ${c.broker_port}`,
+    `TLS: ${c.tls_enabled ? '是' : '否'}`,
+    `用户名: ${c.mqtt_username}`,
+    `密码: ${c.mqtt_password}`,
+    `客户端ID: ${c.mqtt_client_id}`,
+    `发布Topic: ${c.mqtt_pub_topic}`,
+    `订阅Topic: ${c.mqtt_sub_topic}`,
+  ].join('\n')
+  navigator.clipboard.writeText(text).then(() => {
+    ElMessage.success('已复制到剪贴板')
+  }).catch(() => {
+    ElMessage.warning('复制失败，请手动复制')
+  })
 }
 
 useRealtime('devices', handleRealtimeEvent)

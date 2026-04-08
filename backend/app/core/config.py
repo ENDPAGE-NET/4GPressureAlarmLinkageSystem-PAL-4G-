@@ -31,7 +31,11 @@ class Settings(BaseSettings):
     MQTT_ALARM_TOPIC: str = "pal4g/devices/+/alarm"
     MQTT_FEEDBACK_TOPIC: str = "pal4g/devices/+/feedback"
     MQTT_COMMAND_TOPIC_PREFIX: str = "pal4g/devices"
+    # 透传模式：WH-GM5 设备所有上行数据统一发到 {prefix}/{sn}/up
+    MQTT_TRANSPARENT_UP_TOPIC: str = "pal4g/devices/+/up"
     MQTT_ENABLED: bool = False
+    # EMQX HTTP Auth 回调的地址前缀（EMQX 配置用，仅做提示参考）
+    MQTT_EMQX_AUTH_URL: str = "http://127.0.0.1:8001/api/v1/mqtt/emqx/auth"
 
     LOG_LEVEL: str = "INFO"
     LOG_ROOT_DIR: str = "logs"

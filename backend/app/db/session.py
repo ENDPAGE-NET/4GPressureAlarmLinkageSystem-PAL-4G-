@@ -64,6 +64,17 @@ async def ensure_sqlite_schema_compatibility() -> None:
                 "ON devices (protocol_profile_id)"
             )
 
+        for col in ("mqtt_username", "mqtt_password", "mqtt_client_id"):
+            if col not in device_columns:
+                migration_statements.append(
+                    f"ALTER TABLE devices ADD COLUMN {col} VARCHAR(128)"
+                )
+        for col in ("mqtt_pub_topic", "mqtt_sub_topic"):
+            if col not in device_columns:
+                migration_statements.append(
+                    f"ALTER TABLE devices ADD COLUMN {col} VARCHAR(255)"
+                )
+
         if "serial_number" not in module_columns:
             migration_statements.append(
                 "ALTER TABLE modules ADD COLUMN serial_number VARCHAR(128)"

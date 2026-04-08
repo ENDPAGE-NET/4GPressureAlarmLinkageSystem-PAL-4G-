@@ -63,11 +63,15 @@ class ModuleStatusReport(BaseModel):
 class DeviceCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     serial_number: str = Field(min_length=1, max_length=128)
+    mqtt_username: str | None = Field(default=None, max_length=128)
+    mqtt_password: str | None = Field(default=None, max_length=128)
 
 
 class DeviceBind(BaseModel):
     serial_number: str = Field(min_length=1, max_length=128)
     name: str | None = Field(default=None, max_length=128)
+    mqtt_username: str | None = Field(default=None, max_length=128)
+    mqtt_password: str | None = Field(default=None, max_length=128)
 
 
 class DeviceAssignOwner(BaseModel):
@@ -91,11 +95,28 @@ class DeviceRead(BaseModel):
     owner_id: int | None
     linkage_group_id: int | None = None
     protocol_profile_id: int | None = None
+    mqtt_username: str | None = None
+    mqtt_password: str | None = None
+    mqtt_client_id: str | None = None
+    mqtt_pub_topic: str | None = None
+    mqtt_sub_topic: str | None = None
     created_at: datetime
     updated_at: datetime
     modules: list[ModuleRead] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DeviceMqttConfig(BaseModel):
+    """添加设备后返回给管理员的 MQTT 配置卡片信息。"""
+    broker_host: str
+    broker_port: int
+    mqtt_username: str
+    mqtt_password: str
+    mqtt_client_id: str
+    mqtt_pub_topic: str
+    mqtt_sub_topic: str
+    tls_enabled: bool = False
 
 
 class DeviceOverview(BaseModel):

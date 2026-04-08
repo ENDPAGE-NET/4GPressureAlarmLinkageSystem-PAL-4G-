@@ -20,6 +20,13 @@ class Device(Base):
         ForeignKey("protocol_profiles.id"), nullable=True, index=True
     )
     status: Mapped[str] = mapped_column(String(32), default="inactive")
+    # MQTT 凭证：设备接入 EMQX 时使用，添加设备时自动生成或手动指定。
+    mqtt_username: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    mqtt_password: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    mqtt_client_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # 设备级 MQTT Topic 前缀，透传模式下每台设备有固定的上行/下行 Topic。
+    mqtt_pub_topic: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    mqtt_sub_topic: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

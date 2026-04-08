@@ -31,6 +31,7 @@ class MqttClientService:
             settings.MQTT_STATUS_TOPIC,
             settings.MQTT_ALARM_TOPIC,
             settings.MQTT_FEEDBACK_TOPIC,
+            settings.MQTT_TRANSPARENT_UP_TOPIC,
         ]
         self._received_message_count = 0
         self._published_message_count = 0
@@ -146,8 +147,22 @@ class MqttClientService:
     async def process_raw_message(self, topic: str, payload_text: str) -> None:
         async with AsyncSessionLocal() as session:
             try:
-                payload = json.loads(payload_text)
                 topic_info = parse_mqtt_topic(topic)
+
+                self._received_message_count += 1
+                self._last_inbound_topic = topic
+                self._last_inbound_at = datetime.now(timezone.utc)
+
+                # ── 透传模式：设备通过 {prefix}/{sn}/up 上报原始数据 ──
+                if topic_info.category == "up":
+                    await self._handle_transparent_message(
+                        session, topic, topic_info, payload_text,
+                    )
+                    return
+
+                # ── 标准 JSON 模式 ──
+                payload = json.loads(payload_text)
+
                 if topic_info.category == "unknown":
                     device = await get_device_by_serial_with_protocol(
                         session,
@@ -169,10 +184,6 @@ class MqttClientService:
                                 topic_info.module_code = payload.get("module_code")
                                 topic_info.matched_prefix = template
                                 break
-
-                self._received_message_count += 1
-                self._last_inbound_topic = topic
-                self._last_inbound_at = datetime.now(timezone.utc)
 
                 if topic_info.category == "feedback":
                     updated_command = await process_mqtt_feedback_message(session, payload)
@@ -222,6 +233,99 @@ class MqttClientService:
                     context={"topic": topic, "payload": payload_text},
                 )
                 logger.exception("Failed to process MQTT message: %s", exc)
+
+    async def _handle_transparent_message(
+        self,
+        session: Any,
+        topic: str,
+        topic_info: Any,
+        payload_text: str,
+    ) -> None:
+        """
+        处理透传模式上行消息。WH-GM5 在透传模式下将 MCU 串口数据原样发布到
+        pal4g/devices/{sn}/up，payload 可能是 JSON、十六进制、或其它自定义格式。
+
+        策略：
+        1. 先尝试按 JSON 解析，如果包含 type 字段则按类型分发
+        2. 如果不是合法 JSON，则作为 raw 原始数据记录日志（协议发现阶段）
+        3. 无论何种格式，都完整记录到通信日志供后续分析
+        """
+        serial_number = topic_info.serial_number
+        raw_hex = payload_text.encode("utf-8").hex() if payload_text else ""
+
+        # 先尝试 JSON 解析
+        try:
+            payload = json.loads(payload_text)
+        except (json.JSONDecodeError, ValueError):
+            payload = None
+
+        if payload and isinstance(payload, dict):
+            msg_type = payload.get("type", "status")
+
+            if msg_type == "alarm":
+                # 透传 JSON 报警格式
+                payload.setdefault("serial_number", serial_number)
+                from app.services.mqtt_adapter import process_mqtt_alarm_message
+                alarm = await process_mqtt_alarm_message(session, payload)
+                await write_communication_log(
+                    session,
+                    channel="mqtt_transparent",
+                    direction="inbound",
+                    status=alarm.alarm_status,
+                    device_serial=serial_number,
+                    module_code=payload.get("module_code"),
+                    payload=payload,
+                    message=f"transparent alarm from {serial_number}",
+                )
+                return
+
+            if msg_type == "ack":
+                payload.setdefault("serial_number", serial_number)
+                from app.services.mqtt_adapter import process_mqtt_feedback_message
+                updated_command = await process_mqtt_feedback_message(session, payload)
+                await write_communication_log(
+                    session,
+                    channel="mqtt_transparent",
+                    direction="inbound",
+                    status=updated_command.execution_status,
+                    device_serial=serial_number,
+                    module_code=payload.get("module_code"),
+                    payload=payload,
+                    message=f"transparent ack from {serial_number}",
+                )
+                return
+
+            # 默认当作状态上报
+            payload.setdefault("serial_number", serial_number)
+            payload.setdefault("is_online", True)
+            from app.services.mqtt_adapter import process_mqtt_status_message
+            await process_mqtt_status_message(session, payload)
+            await write_communication_log(
+                session,
+                channel="mqtt_transparent",
+                direction="inbound",
+                status="success",
+                device_serial=serial_number,
+                module_code=payload.get("module_code"),
+                payload=payload,
+                message=f"transparent status from {serial_number}",
+            )
+            return
+
+        # 非 JSON 数据：记录原始报文用于协议分析（协议发现阶段）
+        await write_communication_log(
+            session,
+            channel="mqtt_transparent_raw",
+            direction="inbound",
+            status="raw_captured",
+            device_serial=serial_number,
+            payload={"raw_text": payload_text, "raw_hex": raw_hex, "length": len(payload_text)},
+            message=f"raw transparent data from {serial_number}, {len(payload_text)} bytes",
+        )
+        logger.info(
+            "Raw transparent data from %s: %s (hex: %s)",
+            serial_number, repr(payload_text[:200]), raw_hex[:100],
+        )
 
     def publish_relay_command(
         self,

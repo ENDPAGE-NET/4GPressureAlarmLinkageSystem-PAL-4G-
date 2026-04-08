@@ -1,9 +1,11 @@
+import secrets
 from datetime import datetime, timezone
 
 from sqlalchemy import case, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.models.alarm_record import AlarmRecord
 from app.models.device import Device
 from app.models.device_group import DeviceGroup
@@ -21,6 +23,7 @@ from app.schemas.device import (
     DeviceGroupPage,
     DeviceGroupRead,
     DeviceGroupUpdate,
+    DeviceMqttConfig,
     DeviceMonitoringItem,
     DeviceMonitoringPage,
     DeviceOverview,
@@ -35,6 +38,36 @@ from app.services.alarm_service import create_alarm_record
 from app.services.linkage_service import dispatch_linkage_for_alarm
 from app.services.logging_service import write_communication_log
 from app.services.realtime_service import realtime_service
+
+
+def _generate_mqtt_credentials(serial_number: str, payload_username: str | None = None, payload_password: str | None = None) -> dict:
+    """为新设备生成 MQTT 接入凭证，默认以 SN 作为用户名、随机 token 作为密码。"""
+    username = payload_username or serial_number
+    password = payload_password or secrets.token_urlsafe(16)
+    client_id = serial_number
+    pub_topic = f"{settings.MQTT_COMMAND_TOPIC_PREFIX}/{serial_number}/up"
+    sub_topic = f"{settings.MQTT_COMMAND_TOPIC_PREFIX}/{serial_number}/down"
+    return {
+        "mqtt_username": username,
+        "mqtt_password": password,
+        "mqtt_client_id": client_id,
+        "mqtt_pub_topic": pub_topic,
+        "mqtt_sub_topic": sub_topic,
+    }
+
+
+def build_device_mqtt_config(device: Device) -> DeviceMqttConfig:
+    """从已保存的设备信息构建 MQTT 接入配置卡片，供管理员抄录到实体设备。"""
+    return DeviceMqttConfig(
+        broker_host=settings.MQTT_BROKER_HOST,
+        broker_port=settings.MQTT_BROKER_PORT,
+        mqtt_username=device.mqtt_username or device.serial_number,
+        mqtt_password=device.mqtt_password or "",
+        mqtt_client_id=device.mqtt_client_id or device.serial_number,
+        mqtt_pub_topic=device.mqtt_pub_topic or f"{settings.MQTT_COMMAND_TOPIC_PREFIX}/{device.serial_number}/up",
+        mqtt_sub_topic=device.mqtt_sub_topic or f"{settings.MQTT_COMMAND_TOPIC_PREFIX}/{device.serial_number}/down",
+        tls_enabled=settings.MQTT_TLS_ENABLED,
+    )
 
 
 async def get_primary_module_by_device_id(
@@ -129,12 +162,17 @@ async def get_device_by_serial_number(db: AsyncSession, serial_number: str) -> D
 
 
 async def create_device(db: AsyncSession, payload: DeviceCreate, owner: User) -> Device:
-    # 管理员创建的设备先不强绑 owner，便于后续再分配或由普通用户主动绑定。
+    mqtt_creds = _generate_mqtt_credentials(
+        payload.serial_number,
+        payload_username=payload.mqtt_username,
+        payload_password=payload.mqtt_password,
+    )
     device = Device(
         name=payload.name,
         serial_number=payload.serial_number,
         owner_id=owner.id,
         status="inactive",
+        **mqtt_creds,
     )
     db.add(device)
     await db.commit()
@@ -296,21 +334,11 @@ async def add_module_to_device(
     device: Device,
     payload: ModuleCreate,
 ) -> Module:
-    # 当前业务不允许一个设备挂多个模块，这里把旧接口收敛成“配置默认模块”。
-    existing_module = await get_primary_module_by_device_id(db, device.id)
-    if existing_module:
-        existing_module.module_code = payload.module_code
-        existing_module.serial_number = device.serial_number
-        if payload.imei is not None:
-            existing_module.imei = payload.imei
-        await db.commit()
-        await db.refresh(existing_module)
-        return existing_module
-
+    # 每套设备可拥有多个子模块（A-F），模块编号在设备内唯一。
     module = Module(
         device_id=device.id,
         module_code=payload.module_code,
-        serial_number=device.serial_number,
+        serial_number=payload.serial_number or f"{device.serial_number}-{payload.module_code}",
         imei=payload.imei,
     )
     db.add(module)
@@ -325,7 +353,6 @@ async def bind_device_by_serial(
     current_user: User,
 ) -> Device:
     # 绑定逻辑分两种：已存在但未归属的设备归到当前用户；不存在则按 SN 直接建档。
-    # 新模型下优先按模块 SN 绑定所属整套设备，兼容旧的设备级 SN 绑定方式。
     existing_device = await get_device_by_serial_number(db, payload.serial_number)
     if existing_device:
         if existing_device.owner_id and existing_device.owner_id != current_user.id:
@@ -338,11 +365,17 @@ async def bind_device_by_serial(
             await db.refresh(existing_device)
         return existing_device
 
+    mqtt_creds = _generate_mqtt_credentials(
+        payload.serial_number,
+        payload_username=payload.mqtt_username,
+        payload_password=payload.mqtt_password,
+    )
     device = Device(
         name=payload.name or payload.serial_number,
         serial_number=payload.serial_number,
         owner_id=current_user.id,
         status="inactive",
+        **mqtt_creds,
     )
     db.add(device)
     await db.commit()

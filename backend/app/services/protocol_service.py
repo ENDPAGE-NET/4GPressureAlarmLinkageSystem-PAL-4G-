@@ -11,9 +11,11 @@ from app.services.protocol_profile_service import render_topic_template
 
 def parse_mqtt_topic(topic: str) -> ProtocolTopicInfo:
     parts = [segment for segment in topic.strip("/").split("/") if segment]
+
+    # 标准 Topic: pal4g/devices/{sn}/{category}
     if len(parts) == 4 and parts[0] == "pal4g" and parts[1] == "devices":
         category = parts[3]
-        if category in {"status", "alarm", "feedback", "command"}:
+        if category in {"status", "alarm", "feedback", "command", "up", "down"}:
             return ProtocolTopicInfo(
                 category=category,
                 serial_number=parts[2],
@@ -27,6 +29,11 @@ def parse_mqtt_topic(topic: str) -> ProtocolTopicInfo:
 
 def build_relay_command_topic(serial_number: str, module_code: str | None = None) -> str:
     return f"pal4g/devices/{serial_number}/command"
+
+
+def build_device_down_topic(serial_number: str) -> str:
+    """透传模式下行 Topic，用于向设备发送指令。"""
+    return f"pal4g/devices/{serial_number}/down"
 
 
 def build_protocol_command_topic(
